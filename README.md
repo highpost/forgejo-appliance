@@ -377,43 +377,6 @@ While SQLite is incredibly fast and compiled directly into the Forgejo binary (r
 
 PostgreSQL uses Multi-Version Concurrency Control (MVCC) and row-level locking. For a workgroup server expected to handle concurrent git operations and CI/CD API polling, PostgreSQL provides guaranteed transactional stability without sacrificing data integrity. The extra footprint (~100 MB RAM) is a reasonable price to pay for the added reliability.
 
-### Why use a VM instead of a container?
-
-#### Service Orchestration
-
-The Forgejo appliance requires three distinct layers to work together:
-
-- Forgejo (application)
-- PostgreSQL (database)
-- `tsbridge` (network proxy)
-
-Containers prefer a "one process per container" rule. While we can coordinate these services within containers with a minimal init system like `tini`, OrbStack VMs allow us to run a standard Ubuntu environment and leverage `systemd` natively.
-
-#### UNIX Sockets
-
-Once you've collected your layers into a single VM, you need to connect them. TCP/IP network sockets may seem like a logical choice, but they quickly run into headaches:
-
-- PostgreSQL assumes that a network port requires authentication.
-- DNS resolution … is hard.
-- Strict isolation. Our Forgejo appliance should be a black box where only the `tsbridge` reverse proxy is exposed to the network. TCP/IP local networking lends itself to accidental port exposure; UNIX sockets are physically bound to the filesystem, making accidental network exposure impossible.
-
-Instead, the appliance's performance and security rely on tightly coupled UNIX sockets:
-
-- `/run/forgejo/forgejo.sock` is used by `tsbridge` to map Tailnet traffic directly to Forgejo.
-- `/var/run/postgresql/.s.PGSQL.5432` is used by Forgejo to connect with PostgreSQL.
-
-While you can share UNIX sockets between containers using shared volumes, doing so on a Mac via Docker Desktop or OrbStack's container engine often introduces nightmarish UID/GID permission mapping issues across the host-to-guest boundary. With a single Ubuntu VM, you can use UNIX sockets to avoid the shortcomings of TCP/IP local networking.
-
-#### Apple Keychain and Let's Encrypt Workaround
-
-The Let's Encrypt caching hack relies on the host Mac dynamically reading and writing state to the guest environment.
-
-Doing this with standard containers requires clunky volume mounts or complex environment variable injections at runtime. With OrbStack's VM model, you can use `orb exec` to effortlessly pipe a base64-encoded tarball from your Mac's Apple Keychain directly into the root filesystem of the running VM. The VM acts as a highly isolated, yet easily programmable, black box.
-
-#### Data Persistence and Ephemerality
-
-Containers are fundamentally ephemeral. If you accidentally type docker `compose down -v`, your entire database and git repository data are vaporized. While a VM can be deleted, it acts much more like a permanent server for your workgroup. Your data lives safely in `/var/lib/forgejo` without requiring complex persistent volume claim management.
-
 ---
 
 ## Limitations
