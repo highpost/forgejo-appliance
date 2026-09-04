@@ -433,16 +433,17 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 Due to macOS sandbox restrictions, a guest VM cannot directly query its host for secrets. Our general approach is to store secrets in Apple Keychain and then inject them from the macOS host with `orb exec` during the provisioning phase.
 
 We rely on Apple Keychain to store:
-* `tsbridge-oauth-secret` (see `store-ts-oauth-client-secret.sh`)
-* `tsbridge-cert-cache` (see [Apple Keychain and Let's Encrypt Workaround](apple-keychain-and-lets-encrypt-workaround) below)
+* `tsbridge-oauth-secret`: Tailscale OAuth client secret for automated node registration (see `store-ts-oauth-client-secret.sh`).
+* `borg-passphrase`: Offsite Borg backup encryption passphrase (see `store-borg-passphrase.sh`).
+* `tsbridge-cert-cache`: The appliance's cryptographic identity is represented by the WireGuard node private key and the ACME TLS certificate. These are stuffed into a compact `base64` payload for convenient storage in Apple Keychain and managed automatically by `bootstrap-appliance.sh` and `teardown-appliance.sh`.
 
-### Let's Encrypt Certificate Caching
+### WireGuard Identity and Let's Encrypt Certificate Caching
 
-While Tailscale encrypts traffic over WireGuard, Forgejo still requires a Let's Encrypt domain validation certificate for browser HTTPS compliance. We want to minimize the number of Let's Encrypt certificate requests we make for a given URL to avoid their strict rate limit (5 duplicate certs per week). Developing server applications on VMs is an iterative process, and you will quickly discover that repeatedly spinning up new VM instances using the same URL can do exactly that.
+While Tailscale encrypts traffic over WireGuard, Forgejo still requires a Let's Encrypt domain validation certificate for browser HTTPS compliance. We want to minimize the number of Let's Encrypt certificate requests we make for a given URL to avoid their strict rate limit (5 duplicate certs per week). Developing server applications on VMs is an iterative process, and repeatedly spinning up new VM instances using the same URL can quickly trigger this limit.
 
-To preserve strict VM isolation while avoiding Let's Encrypt rate limits, we use an automated workaround:
-* `teardown-appliance.sh`: Compresses the TLS state in `/var/lib/tsbridge` into a base64 string and then stores it in Apple Keychain.
-* `bootstrap-appliance.sh`: Injects the base64 string back into a new VM's local storage, ensuring a seamless authenticated boot.
+To preserve strict VM isolation while avoiding Let's Encrypt rate limits and MagicDNS hostname collisions, we use an automated workaround:
+* `teardown-appliance.sh`: Archives the WireGuard node private key and the ACME TLS certificate cache from `/var/lib/tsbridge`, tar-compresses and base64-encodes the entire cryptographic state into a tiny payload (~90 bytes), and stores it directly into Apple Keychain (`$TS_CERT_CACHE`). Private keys never touch the host filesystem as plaintext or risk being committed to Git.
+* `bootstrap-appliance.sh`: Injects the base64 string back into the new VM's local storage and unpacks it into `/var/lib/tsbridge`, ensuring an immediate authenticated boot with valid TLS certificates and zero rate-limit penalties.
 
 *Note: If you suspect you've hit the rate limit for Let's Encrypt, search for your Tailnet node on [crt.sh](https://crt.sh).*
 
