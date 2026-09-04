@@ -1,6 +1,6 @@
 # Forgejo Appliance
 
-Forgejo is a powerful and lightweight GitHub clone written in Go. This project is an opinionated blueprint for deploying Forgejo in an OrbStack VM with Ubuntu, PostgreSQL and the `tsbridge` reverse proxy. The goal is to provide a distributed private workgroup server rather than a public website. You can host the appliance on a home/office Mac, and then colleagues can access it from anywhere in the world through Tailscale.
+Forgejo is a powerful and lightweight GitHub clone written in Go. This project is an opinionated blueprint for deploying Forgejo in an OrbStack VM with Ubuntu, PostgreSQL and the `tsbridge` reverse proxy. The goal is to provide something like a distributed private workgroup server rather than a public website. You can host the appliance on a home/office Mac, and then colleagues can access it from anywhere in the world through Tailscale.
 
 While this blueprint is tailored for Forgejo, it can also serve as a pattern for hosting other server applications like Nextcloud, Wiki.js, BookStack or Jellyfin. Most of the work would be in modifying `forgejo-appliance.yml`.
 
@@ -43,9 +43,12 @@ To make this appliance permanent and maintenance-free, we use an OAuth Client Se
 ### Modify the Configuration Files
 
 * `config.env`:
-  * `TS_OAUTH_CLIENT_ID="YOUR_TAILNET_OAUTH_ID"`
-  * `TS_HOSTNAME="YOUR_FORGEJO_HOSTNAME"`
-  * `TS_TAILNET="YOUR_TAILNET_DOMAIN"`
+  * **Required:**
+    * `TS_OAUTH_CLIENT_ID="YOUR_TAILNET_OAUTH_ID"`
+    * `TS_HOSTNAME="YOUR_FORGEJO_HOSTNAME"`
+    * `TS_TAILNET="YOUR_TAILNET_DOMAIN"`
+  * **Optional (for remote backups):**
+    * `BORG_REPO="zh1234@zh1234.rsync.net:forgejo-backup"` (see [Optional Remote Backups](#optional-remote-backups))
 * `forgejo-appliance.yml`:
   * `[[services]]`
     * `name        = "YOUR_FORGEJO_HOSTNAME"`
@@ -224,11 +227,13 @@ Software updates follow a simple three-step procedure:
 - Run `teardown-appliance.sh` to store the Forgejo appliance's persistent state and then completely remove the VM.
 - Run `bootstrap-appliance.sh` to build a new VM and restore your persistent data (`forgejo-backup.tar.gz` and `forgejo-db.sql`).
 
-### Backup Strategy
+### Optional Remote Backups
 
-Because this appliance treats the OrbStack VM as ephemeral, standard VM snapshots won't work. We reuse the backup mechanism built into `teardown-appliance.sh` to extract the persistent data into two files `forgejo-backup.tar.gz` and `forgejo-db.sql`) on the macOS host. We then use [BorgBackup](https://borgbackup.readthedocs.io/) to remotely backup these files on [rsync.net](https://www.rsync.net/).
+Local data persistence is built directly into the appliance lifecycle: running `teardown-appliance.sh` dumps the database and file repositories to your macOS host, and `bootstrap-appliance.sh` restores them. Standard VM snapshots will not work because the OrbStack VM is treated as ephemeral.
 
-Borg provides client-side encryption and block-level deduplication. This is efficient for our daily database dumps and repository tarballs, since Borg will only upload the exact bytes that change during the day.
+For automated, encrypted remote disaster recovery, we provide an **optional** [BorgBackup](https://borgbackup.readthedocs.io/) strategy targeting [rsync.net](https://www.rsync.net/).
+
+Borg provides client-side encryption and block-level deduplication. This is efficient for daily database dumps and repository tarballs, since Borg will only upload the exact bytes that change during the day.
 
 #### Install [BorgBackup](https://borgbackup.readthedocs.io/)
 
@@ -239,49 +244,84 @@ brew install borgbackup
 
 #### Register your repo with your rsync.net account
 
-Initialize your encrypted repository on rsync.net (you only need to do this once). Save your passphrase in Apple Keychain.
+[rsync.net](https://www.rsync.net/) provides remote cloud storage with native BorgBackup support over SSH. When you sign up, you receive an account identifier (for example, `zh1234`) and a host domain (`zh1234.rsync.net` or a regional hostname).
 
+1. **Configure SSH Key Access:**
+   Ensure your macOS host can authenticate to rsync.net via SSH without an interactive password:
+   ```bash
+   ssh-copy-id -i ~/.ssh/id_ed25519.pub zh1234@zh1234.rsync.net
+   ```
+   Verify the connection:
+   ```bash
+   ssh zh1234@zh1234.rsync.net
+   ```
+
+2. **Store Passphrase in Apple Keychain:**
+   Save your Borg encryption passphrase securely in Apple Keychain using the helper script:
+   ```bash
+   ./store-borg-passphrase.sh
+   ```
+
+3. **Initialize the Remote Borg Backup Repo:**
+   Initialize your encrypted repository on rsync.net (you only need to do this once). Replace `zh1234` with your actual rsync.net account username:
+   ```bash
+   # example for rsync.net account zh1234:
+   borg init -e repokey zh1234@zh1234.rsync.net:forgejo-backup
+   ```
+
+4. **Configure `BORG_REPO` in `config.env`:**
+   Set `BORG_REPO` to point to your rsync.net destination:
+   ```bash
+   BORG_REPO="zh1234@zh1234.rsync.net:forgejo-backup"
+   ```
+
+#### Configuring the Retention Policy
+
+You can customize how many snapshots to retain by adjusting the retention settings in `config.env`:
+
+```bash
+# granular retention policy (defaults: 7 daily, 4 weekly, 6 monthly)
+BORG_KEEP_DAILY=7
+BORG_KEEP_WEEKLY=4
+BORG_KEEP_MONTHLY=6
+BORG_KEEP_YEARLY=""
+
+# or specify a raw override to pass custom flags directly to 'borg prune':
+# BORG_RETENTION_POLICY="--keep-within=14d --keep-monthly=12"
 ```
-borg init -e repokey RSYNC-USER@RSYNC-URL.rsync.net:forgejo-backup
-```
+
+When `BORG_RETENTION_POLICY` is set, it overrides the individual `BORG_KEEP_*` values.
 
 #### Daily Backup Workflow
 
-To back up the Forgejo appliance, you must extract the state, push it to [rsync.net](https://rsync.net), and then rebuild the VM. You can automate this by putting the following commands into a script (e.g., `backup.sh`) and scheduling it to run nightly via macOS `launchd`:
+To back up the Forgejo appliance, you extract the state, push it to [rsync.net](https://rsync.net), and then rebuild the VM. The included `backup-appliance.sh` script automates this workflow:
 
+```bash
+./backup-appliance.sh
 ```
-#!/bin/zsh
 
-export BORG_PASSPHRASE="your_super_secret_passphrase"
-export BORG_REPO="RSYNC-USER@RSYNC-URL.rsync.net:forgejo-backup"
+Under the hood, `backup-appliance.sh` executes the following sequence:
 
-# safely halt the appliance and extract the data to the Mac host
-./teardown-appliance.sh
-
-# create an encrypted, deduplicated snapshot tagged with the current date
-borg create ::{now:%Y-%m-%d} ./forgejo-backup.tar.gz ./forgejo-db.sql
-
-# clean up old backups (keep 7 daily, 4 weekly, and 6 monthly archives)
-borg prune --keep-daily=7 --keep-weekly=4 --keep-monthly=6
-
-# rebuild the appliance and inject the state
-./bootstrap-appliance.sh
-```
+1. Safely halts the appliance and extracts data to the macOS host (`./teardown-appliance.sh`).
+2. Creates an encrypted, deduplicated snapshot in Borg (`borg create ::{now:%Y-%m-%d} ./forgejo-backup.tar.gz ./forgejo-db.sql`).
+3. Cleans up old backups based on the retention policy configured in `config.env` (`borg prune`).
+4. Rebuilds the appliance and restores the state (`./bootstrap-appliance.sh`).
 
 #### Automating with macOS `launchd`
 
-To automatically run the `backup.sh` script every night, we use macOS's native `launchd` system.
+To automatically run `backup-appliance.sh` every night, use macOS's native `launchd` system:
 
-1. Ensure your backup script is executable:
+1. Ensure the backup script is executable:
 
 ```
-chmod +x /absolute/path/to/backup.sh
+chmod +x /absolute/path/to/backup-appliance.sh
 ```
-2. Create a Launch Agent property list (.plist) file. Open your terminal and create a file at ~/Library/LaunchAgents/com.forgejo-appliance.backup.plist.
-3. Paste the following XML into the file. Important: You must replace `/Users/YOUR_MAC_USERNAME/path/to/backup.sh` with the absolute path to your script, as `launchd` does not resolve relative paths (like `./` or `~/`).
-```
+
+2. Create a Launch Agent property list (`.plist`) file at `~/Library/LaunchAgents/com.forgejo-appliance.backup.plist`.
+3. Paste the following XML into the file. **Important:** Replace `/Users/YOUR_MAC_USERNAME/path/to/backup-appliance.sh` with the absolute path to your script:
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "[http://www.apple.com/DTDs/PropertyList-1.0.dtd](http://www.apple.com/DTDs/PropertyList-1.0.dtd)">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -289,7 +329,7 @@ chmod +x /absolute/path/to/backup.sh
     
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_MAC_USERNAME/path/to/backup.sh</string>
+        <string>/Users/YOUR_MAC_USERNAME/path/to/backup-appliance.sh</string>
     </array>
     
     <key>StartCalendarInterval</key>
@@ -312,8 +352,32 @@ chmod +x /absolute/path/to/backup.sh
 launchctl load ~/Library/LaunchAgents/com.forgejo-appliance.backup.plist
 ```
 
+#### Listing and Restoring Remote Backups
 
-By combining a scheduled run of `teardown-appliance.sh` with a local Borg `launchd` job, you can achieve a fully automated, encrypted and heavily deduplicated offsite backup pipeline.
+You can inspect all available snapshots stored in your remote Borg backup repo:
+
+```bash
+./list-remote-backups.sh
+```
+
+To restore the appliance from a specific remote snapshot:
+
+```bash
+./restore-appliance.sh <archive_name>
+```
+
+For example:
+```bash
+./restore-appliance.sh 2026-09-02
+```
+
+The restore script safely coordinates the restoration:
+1. Validates that the archive exists on the remote repository.
+2. Extracts and verifies the backup files in an isolated temporary staging directory before altering the active appliance.
+3. Halts the active appliance with `./teardown-appliance.sh` and preserves the current host files as `.bak`.
+4. Injects the restored snapshot files and brings the appliance back up with `./bootstrap-appliance.sh`.
+
+By combining a scheduled run of `teardown-appliance.sh` with a local Borg `launchd` job, you can achieve a fully automated, encrypted and heavily deduplicated remote backup pipeline.
 
 ---
 
@@ -329,7 +393,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | **Tailscale** | An open source mesh VPN based on WireGuard. |
 | **Ubuntu Server** | Provides a complete Linux system environment. |
 | **`systemd`** | Orchestrates service lifecycles and UNIX socket dependencies between Forgejo, PostgreSQL and the `tsbridge`. |
-| **PostgreSQL** | A relational database server configured with local UNIX socket trust authentication. While Forgejo includes SQLite in its binary, PostgreSQL can gracefully handle concurrent writes, making it a safer and more performant choice for a small to medium-sized workgroup server at the footprint cost of about ~150 MB storage and ~100 MB RAM. |
+| **PostgreSQL** | A relational database server configured with local UNIX socket trust authentication. While Forgejo includes SQLite in its binary, PostgreSQL can gracefully handle concurrent writes, making it a safer and more performant choice for a small to medium-sized server at the footprint cost of about ~150 MB storage and ~100 MB RAM. |
 | **`tsbridge`** | A Tailscale-aware reverse proxy. Maps the Tailnet HTTPS ingress layer directly to Forgejo's local UNIX socket. |
 | **Apple Keychain** | Native macOS secrets management.
 | **Google SMTP** | Maps a Google Workspace email alias to Forgejo for reliable, authenticated outbound system notifications. |
@@ -343,7 +407,11 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `LICENSE` | [2-clause BSD license.](https://opensource.org/license/bsd-2-clause) |
 | `README.md` | This file. |
 | `bootstrap-appliance.sh` | Provisions the VM, injects Tailscale/TLS credentials from Keychain, restores database backups and starts system services. |
+| `backup-appliance.sh` | Orchestrates the teardown, Borg encrypted snapshot and prune, and fresh bootstrap cycle. |
+| `restore-appliance.sh` | Extracts a specific remote snapshot, safely halts the active appliance, and bootstraps with the restored state. |
+| `list-remote-backups.sh` | Lists available snapshot archives in the remote Borg backup repo. |
 | `store-ts-oauth-client-secret.sh` | Prompts for and securely stores the Tailscale OAuth Client Secret into the macOS host's Apple Keychain. |
+| `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
 | `teardown-appliance.sh` | Gracefully halts services, extracts the database and Let's Encrypt certificates to the macOS host and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
 | `forgejo-backup.tar.gz` | The filesystem state. Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
@@ -375,7 +443,7 @@ When tearing down a VM, Tailscale's global MagicDNS table holds an active lease 
 
 While SQLite is incredibly fast and compiled directly into the Forgejo binary (requiring zero setup), it relies on file-level locking for database writes. If two users push code concurrently, or a user pushes code while a background worker is updating an issue tracker, SQLite can throw database is locked errors.
 
-PostgreSQL uses Multi-Version Concurrency Control (MVCC) and row-level locking. For a workgroup server expected to handle concurrent git operations and CI/CD API polling, PostgreSQL provides guaranteed transactional stability without sacrificing data integrity. The extra footprint (~100 MB RAM) is a reasonable price to pay for the added reliability.
+PostgreSQL uses Multi-Version Concurrency Control (MVCC) and row-level locking. For a database server expected to handle concurrent git operations and CI/CD API polling, PostgreSQL provides guaranteed transactional stability without sacrificing data integrity. The extra footprint (~100 MB RAM) is a reasonable price to pay for the added reliability.
 
 ---
 

@@ -15,9 +15,13 @@ backup_appliance_state() {
 
     # halt the reverse proxy to safely flush the Tailscale database to disk
     orb exec -m "$FORGEJO_VM" sudo systemctl stop tsbridge
+
+    # archive both the Tailscale node state & the TLS cert cache in /var/lib/tsbridge 
+    # into a base64 string
     local ts_state_b64
     ts_state_b64=$(orb exec -m "$FORGEJO_VM" sudo tar -cf - -C /var/lib/tsbridge . | base64 -b 0)
 
+    # store the string in Keychain
     if [ -n "$ts_state_b64" ]; then
         security add-generic-password -a "$USER" -s "$TS_CERT_CACHE" -w "$ts_state_b64" -U
     else
@@ -26,6 +30,7 @@ backup_appliance_state() {
 
     # halt the forgejo service to ensure database consistency
     orb exec -m "$FORGEJO_VM" sudo systemctl stop forgejo
+
     # remove any leftover files from previous aborted runs
     orb exec -m "$FORGEJO_VM" sudo rm -f /tmp/forgejo-backup.tar.gz /tmp/forgejo-db.sql
 
@@ -47,6 +52,7 @@ backup_appliance_state() {
 
 # remove the Tailscale node via the TS API and then clear the local Keychain cache
 purge_ts_node() {
+    # extract the OAuth secret key from Keychain
     local ts_oauth_secret_value
     ts_oauth_secret_value="$(security find-generic-password -s "$TS_OAUTH_SECRET_KEY" -w 2>/dev/null || true)"
 
@@ -60,9 +66,19 @@ purge_ts_node() {
     oauth_reply=$(curl -s -u "$TS_OAUTH_CLIENT_ID:$ts_oauth_secret_value" \
         -d "grant_type=client_credentials" \
         https://api.tailscale.com/api/v2/oauth/token)
+    unset ts_oauth_secret_value
 
+    # parse the bearer access token from the OAuth response JSON
     local access_token
-    access_token=$(echo "$oauth_reply" | python3 -c "import sys, json; print(json.load(sys.stdin).get('access_token') or '')" 2>/dev/null)
+    access_token=$(python3 - "$oauth_reply" <<'EOF'
+import sys, json
+try:
+    data = json.loads(sys.argv[1])
+    print(data.get('access_token') or '')
+except Exception:
+    pass
+EOF
+)
 
     if [ -n "$access_token" ]; then
         local devices_json
@@ -70,16 +86,19 @@ purge_ts_node() {
         devices_json=$(curl -s -H "Authorization: Bearer $access_token" \
             "https://api.tailscale.com/api/v2/tailnet/$TS_TAILNET/devices")
 
+        # find the Tailscale node ID matching the VM hostname
         local node_id
-        node_id=$(echo "$devices_json" | python3 -c "
+        node_id=$(python3 - "$devices_json" "$FORGEJO_VM" <<'EOF'
 import sys, json
 try:
-    data = json.load(sys.stdin)
-    match = next((d['id'] for d in data.get('devices', []) if d.get('hostname', '').startswith('$FORGEJO_VM')), '')
+    data = json.loads(sys.argv[1])
+    target_vm = sys.argv[2]
+    match = next((d['id'] for d in data.get('devices', []) if d.get('hostname', '').startswith(target_vm)), '')
     print(match)
 except Exception:
-    print('')
-")
+    pass
+EOF
+)
 
         # delete the Tailscale node registry entry if it exists
         if [ -n "$node_id" ]; then

@@ -1,0 +1,11 @@
+# default repository
+export BORG_REPO="/path/to/your/backup/repo"
+
+# essential Borg shortcuts
+alias binit="borg init --encryption=repokey"
+alias bcreate="borg create --stats --progress"
+alias blist="borg list"
+alias binfo="borg info"
+alias bcheck="borg check"
+alias bmount="borg mount"
+alias bumount="borg umount"
