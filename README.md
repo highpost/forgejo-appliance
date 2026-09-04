@@ -94,6 +94,16 @@ Run the automated stress-test to tear down and rebuild the VM multiple times. Th
 ./test-appliance.sh
 ```
 
+#### Verify Backups and Restoration
+
+To validate the Borg backup, divergence detection, and restoration pipeline end-to-end:
+
+```bash
+./test-backup.sh
+```
+
+This test is self-contained: it seeds an ephemeral test user and Git repository with commits, creates an encrypted backup in your Borg repository, simulates an unbacked-up mutation, restores from the snapshot, verifies database and Git filesystem integrity, and cleans up the test snapshot.
+
 ### Post-Provisioning Operations
 
 Once the appliance is running, you can interact with the Forgejo CLI directly through OrbStack to finalize your setup.
@@ -414,6 +424,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
 | `teardown-appliance.sh` | Gracefully halts services, extracts the database and Let's Encrypt certificates to the macOS host and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
+| `test-backup.sh` | Automates end-to-end backup, state divergence, and restoration verification with self-seeded test users and Git repositories. |
 | `forgejo-backup.tar.gz` | The filesystem state. Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
 | `forgejo-db.sql` | The relational state. Contains user accounts, repository metadata, issues, pull requests, comments, webhooks, SSH public keys and application tokens. |
 

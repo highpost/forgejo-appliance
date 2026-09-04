@@ -9,6 +9,7 @@
 * **restore:** `./restore-appliance.sh <archive_name>`
 * **list remote backups:** `./list-remote-backups.sh`
 * **test / lifecycle verification:** `./test-appliance.sh`
+* **test backup & restore:** `./test-backup.sh`
 * **teardown (preserve state):** `./teardown-appliance.sh`
 * **teardown (purge TS node and certs):** `./teardown-appliance.sh --purge`
 * **store TS secret in Keychain:** `./store-ts-oauth-client-secret.sh`

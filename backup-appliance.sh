@@ -23,12 +23,16 @@ main() {
     fi
 
     log_info "Step 2/3: Creating encrypted deduplicated snapshot in Borg repo..."
-    local archive_target="${BORG_ARCHIVE_NAME:-::{now:%Y-%m-%d}}"
+    local archive_name="${1:-$BORG_ARCHIVE_NAME}"
+    local archive_target="${archive_name:-::{now:%Y-%m-%d}}"
+    if [[ "$archive_target" != *"::"* ]]; then
+        archive_target="::$archive_target"
+    fi
     local borg_err=0
 
     borg create --stats "$archive_target" ./forgejo-backup.tar.gz ./forgejo-db.sql || borg_err=$?
 
-    if [ $borg_err -eq 0 ]; then
+    if [ $borg_err -eq 0 ] && [ -z "$1" ]; then
         local prune_flags=()
         if [ -n "$BORG_RETENTION_POLICY" ]; then
             prune_flags=(${=BORG_RETENTION_POLICY})
