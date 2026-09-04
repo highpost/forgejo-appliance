@@ -30,11 +30,11 @@ EOF
     orb exec -m "$FORGEJO_VM" sudo chmod 0600      /etc/tsbridge/tsbridge.env
     orb exec -m "$FORGEJO_VM" sudo chown root:root /etc/tsbridge/tsbridge.env
 
-    # restore the domain validation certificate from Apple Keychain
+    # restore the WireGuard node private key and ACME TLS certificate from Apple Keychain
     local ts_state_b64
     ts_state_b64=$(security find-generic-password -s "$TS_CERT_CACHE" -w 2>/dev/null || true)
 
-    # decode and unpack the cached Tailscale state and TLS certificates into /var/lib/tsbridge
+    # decode and unpack the cached WireGuard node identity and ACME TLS certificates into /var/lib/tsbridge
     if [ -n "$ts_state_b64" ]; then
         orb exec -m "$FORGEJO_VM" sudo mkdir -p        /var/lib/tsbridge
         orb exec -m "$FORGEJO_VM" sudo chmod 700       /var/lib/tsbridge

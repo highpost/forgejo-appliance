@@ -16,7 +16,7 @@ backup_appliance_state() {
     # halt the reverse proxy to safely flush the Tailscale database to disk
     orb exec -m "$FORGEJO_VM" sudo systemctl stop tsbridge
 
-    # archive both the Tailscale node state & the TLS cert cache in /var/lib/tsbridge 
+    # archive both the WireGuard node private key & ACME TLS certificate cache in /var/lib/tsbridge 
     # into a base64 string
     local ts_state_b64
     ts_state_b64=$(orb exec -m "$FORGEJO_VM" sudo tar -cf - -C /var/lib/tsbridge . | base64 -b 0)
@@ -25,7 +25,7 @@ backup_appliance_state() {
     if [ -n "$ts_state_b64" ]; then
         security add-generic-password -a "$USER" -s "$TS_CERT_CACHE" -w "$ts_state_b64" -U
     else
-        log_info "no certificate state found inside the VM to back up."
+        log_info "no WireGuard node state or TLS certificates found inside the VM to back up."
     fi
 
     # halt the forgejo service to ensure database consistency
@@ -121,7 +121,7 @@ EOF
         fi
     fi
 
-    # clear the local certificate cache so the next boot has a completely clean slate
+    # purge the cached WireGuard node private key and ACME TLS certificate from Apple Keychain
     security delete-generic-password -s "$TS_CERT_CACHE" 2>/dev/null || true
 }
 
