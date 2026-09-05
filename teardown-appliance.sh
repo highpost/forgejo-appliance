@@ -22,8 +22,9 @@ backup_appliance_state() {
     ts_state_b64=$(orb exec -m "$FORGEJO_VM" sudo tar -cf - -C /var/lib/tsbridge . | base64 -b 0)
 
     # store the string in Keychain
+    local state_key="${TS_STATE_CACHE:-${TS_CERT_CACHE:-tsbridge-state-cache}}"
     if [ -n "$ts_state_b64" ]; then
-        security add-generic-password -a "$USER" -s "$TS_CERT_CACHE" -w "$ts_state_b64" -U
+        security add-generic-password -a "$USER" -s "$state_key" -w "$ts_state_b64" -U
     else
         log_info "no WireGuard node state or TLS certificates found inside the VM to back up."
     fi
@@ -122,7 +123,9 @@ EOF
     fi
 
     # purge the cached WireGuard node private key and ACME TLS certificate from Apple Keychain
-    security delete-generic-password -s "$TS_CERT_CACHE" 2>/dev/null || true
+    local state_key="${TS_STATE_CACHE:-${TS_CERT_CACHE:-tsbridge-state-cache}}"
+    security delete-generic-password -s "$state_key" 2>/dev/null || true
+    security delete-generic-password -s "tsbridge-cert-cache" 2>/dev/null || true
 }
 
 # delete the underlying OrbStack VM instance

@@ -45,17 +45,17 @@ To make this appliance permanent and maintenance-free, we use an OAuth Client Se
 * `config.env`:
   * **Required:**
     * `TS_OAUTH_CLIENT_ID="YOUR_TAILNET_OAUTH_ID"`
-    * `TS_HOSTNAME="YOUR_FORGEJO_HOSTNAME"`
+    * `TS_MACHINE_NAME="YOUR_TAILSCALE_MACHINE_NAME"`
     * `TS_TAILNET="YOUR_TAILNET_DOMAIN"`
   * **Optional (for remote backups):**
     * `BORG_REPO="zh1234@zh1234.rsync.net:forgejo-backup"` (see [Optional Remote Backups](#optional-remote-backups))
 * `forgejo-appliance.yml`:
   * `[[services]]`
-    * `name        = "YOUR_FORGEJO_HOSTNAME"`
-    * `hostname    = "YOUR_FORGEJO_HOSTNAME"`
+    * `name        = "YOUR_TAILSCALE_MACHINE_NAME"`
+    * `hostname    = "YOUR_TAILSCALE_MACHINE_NAME"`
   * `[server]`
-    * `DOMAIN      = YOUR_FORGEJO_HOSTNAME.YOUR_TAILNET_DOMAIN`
-    * `ROOT_URL    = https://YOUR_FORGEJO_HOSTNAME.YOUR_TAILNET_DOMAIN/`
+    * `DOMAIN      = YOUR_TAILSCALE_MACHINE_NAME.YOUR_TAILNET_DOMAIN`
+    * `ROOT_URL    = https://YOUR_TAILSCALE_MACHINE_NAME.YOUR_TAILNET_DOMAIN/`
   * `[mailer]`
     * `USER        = YOUR_GOOGLE_WORKSPACE_ACCOUNT`
     * `PASSWD      = YOUR_GOOGLE_SMTP_PASSWORD`
@@ -171,7 +171,7 @@ To push an existing local repository to your new Forgejo appliance:
 
 ```
 # link your local repository to the Forgejo remote
-git remote add origin https://*YOUR_FORGEJO_HOSTNAME*.*YOUR_TAILNET_DOMAIN*/*YOUR_FORGEJO_USERNAME*/*YOUR_REPO*.git
+git remote add origin https://*YOUR_TAILSCALE_MACHINE_NAME*.*YOUR_TAILNET_DOMAIN*/*YOUR_FORGEJO_USERNAME*/*YOUR_REPO*.git
 
 # push your code and set the upstream tracking branch
 git push --set-upstream origin main
@@ -430,20 +430,21 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 
 ### Secrets Management with Apple Keychain
 
-Due to macOS sandbox restrictions, a guest VM cannot directly query its host for secrets. Our general approach is to store secrets in Apple Keychain and then inject them from the macOS host with `orb exec` during the provisioning phase.
+Due to macOS sandbox restrictions, a guest VM cannot directly query the host for credentials. The appliance stores all sensitive credentials in the macOS Apple Keychain and injects them into the VM via `orb exec` during provisioning.
 
-We rely on Apple Keychain to store:
-* `tsbridge-oauth-secret`: Tailscale OAuth client secret for automated node registration (see `store-ts-oauth-client-secret.sh`).
-* `borg-passphrase`: Offsite Borg backup encryption passphrase (see `store-borg-passphrase.sh`).
-* `tsbridge-cert-cache`: The appliance's cryptographic identity is represented by the WireGuard node private key and the ACME TLS certificate. These are stuffed into a compact `base64` payload for convenient storage in Apple Keychain and managed automatically by `bootstrap-appliance.sh` and `teardown-appliance.sh`.
+We maintain three Keychain items:
 
-### WireGuard Identity and Let's Encrypt Certificate Caching
+| Keychain Item | Variable | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `tsbridge-oauth-secret` | `$TS_OAUTH_SECRET_KEY` | Operator-Managed | Tailscale OAuth client secret used by `tsbridge` to automatically authenticate the appliance to your tailnet (stored via `store-ts-oauth-client-secret.sh`). |
+| `borg-passphrase` | `$BORG_PASSPHRASE_KEY` | Operator-Managed | Passphrase used by Borg to encrypt and decrypt offsite backup snapshots on rsync.net (stored via `store-borg-passphrase.sh`). |
+| `tsbridge-state-cache` | `$TS_STATE_CACHE` | Appliance-Managed | Runtime cryptographic state from `/var/lib/tsbridge`: bundles the **WireGuard node private key** (prevents MagicDNS collisions) and the **ACME TLS certificate & key** (avoids Let's Encrypt rate limits). Managed automatically by `bootstrap-appliance.sh` and `teardown-appliance.sh`. |
 
-While Tailscale encrypts traffic over WireGuard, Forgejo still requires a Let's Encrypt domain validation certificate for browser HTTPS compliance. We want to minimize the number of Let's Encrypt certificate requests we make for a given URL to avoid their strict rate limit (5 duplicate certs per week). Developing server applications on VMs is an iterative process, and repeatedly spinning up new VM instances using the same URL can quickly trigger this limit.
+#### Why Store Runtime Cryptography in Keychain?
 
-To preserve strict VM isolation while avoiding Let's Encrypt rate limits and MagicDNS hostname collisions, we use an automated workaround:
-* `teardown-appliance.sh`: Archives the WireGuard node private key and the ACME TLS certificate cache from `/var/lib/tsbridge`, tar-compresses and base64-encodes the entire cryptographic state into a tiny payload (~90 bytes), and stores it directly into Apple Keychain (`$TS_CERT_CACHE`). Private keys never touch the host filesystem as plaintext or risk being committed to Git.
-* `bootstrap-appliance.sh`: Injects the base64 string back into the new VM's local storage and unpacks it into `/var/lib/tsbridge`, ensuring an immediate authenticated boot with valid TLS certificates and zero rate-limit penalties.
+* **Zero Filesystem Exposure:** Because `/var/lib/tsbridge` contains unencrypted private keys, writing them to the host filesystem as loose files would risk accidental commits to Git. Storing them encrypted at rest in Apple Keychain keeps private keys off the host disk entirely.
+* **Extreme Efficiency:** `teardown-appliance.sh` tar-compresses and base64-encodes the entire cryptographic state into a tiny ~90-byte payload. On boot, `bootstrap-appliance.sh` decodes it back into the fresh VM in milliseconds.
+* **Lifecycle Purge:** When you want a clean slate, running `./teardown-appliance.sh --purge` evicts the machine from Tailscale and deletes this Keychain item automatically.
 
 *Note: If you suspect you've hit the rate limit for Let's Encrypt, search for your Tailnet node on [crt.sh](https://crt.sh).*
 

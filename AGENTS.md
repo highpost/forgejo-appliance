@@ -32,7 +32,7 @@
 * **target architecture:** `linux/arm64` binaries (Forgejo, `tsbridge`) for Apple Silicon host.
 * **socket IPC paths:** Localize UNIX sockets in the VM filesystem (`/run/forgejo/forgejo.sock` and `/var/run/postgresql`).
 * **ephemeral appliance state:** The VM is immutable. Persistent state is restored/dumped across lifecycles:
-  * **Tailscale state and TLS certs:** Cached in Apple Keychain (`$TS_CERT_CACHE`).
+  * **Tailscale state and TLS certs:** Cached in Apple Keychain (`$TS_STATE_CACHE`).
   * **app data and repositories:** Archived in `forgejo-backup.tar.gz`.
   * **database:** Dumped in `forgejo-db.sql`.
 * **Tailscale DNS leases:** Allow sufficient convergence time (~3 min on `--purge`) when deleting nodes via API to prevent MagicDNS hostname collision suffixes.

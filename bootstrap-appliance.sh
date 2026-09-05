@@ -31,8 +31,13 @@ EOF
     orb exec -m "$FORGEJO_VM" sudo chown root:root /etc/tsbridge/tsbridge.env
 
     # restore the WireGuard node private key and ACME TLS certificate from Apple Keychain
+    local state_key="${TS_STATE_CACHE:-${TS_CERT_CACHE:-tsbridge-state-cache}}"
     local ts_state_b64
-    ts_state_b64=$(security find-generic-password -s "$TS_CERT_CACHE" -w 2>/dev/null || true)
+    ts_state_b64=$(security find-generic-password -s "$state_key" -w 2>/dev/null || true)
+    if [ -z "$ts_state_b64" ] && [ "$state_key" != "tsbridge-cert-cache" ]; then
+        # legacy fallback
+        ts_state_b64=$(security find-generic-password -s "tsbridge-cert-cache" -w 2>/dev/null || true)
+    fi
 
     # decode and unpack the cached WireGuard node identity and ACME TLS certificates into /var/lib/tsbridge
     if [ -n "$ts_state_b64" ]; then

@@ -6,7 +6,8 @@ source "./config.env"
 source "./utils.sh"
 
 TARGET_IP=""  # global variable to hold the resolved IP for downstream tests
-TARGET_HOST="$TS_HOSTNAME.$TS_TAILNET"
+TS_NODE_NAME="${TS_MACHINE_NAME:-$TS_HOSTNAME}"
+TARGET_HOST="$TS_NODE_NAME.$TS_TAILNET"
 TOTAL_CYCLES=10
 
 # tear down and bootstrap a fresh VM
@@ -26,7 +27,7 @@ resolve_tailscale_ip() {
     local poll
     for poll in {1..10}; do
         # || true prevents grep from killing the script if it finds nothing
-        TARGET_IP=$(tailscale status | grep -w "$TS_HOSTNAME" | awk '{print $1}' || true)
+        TARGET_IP=$(tailscale status | grep -w "$TS_NODE_NAME" | awk '{print $1}' || true)
 
         if [ -n "$TARGET_IP" ]; then
             break
@@ -36,7 +37,7 @@ resolve_tailscale_ip() {
     done
 
     if [ -z "$TARGET_IP" ]; then
-        log_err "could not find Tailscale IP for $TS_HOSTNAME after 50 seconds."
+        log_err "could not find Tailscale IP for $TS_NODE_NAME after 50 seconds."
         exit 1
     fi
 
@@ -50,7 +51,7 @@ verify_tunnel() {
     
     local p
     for p in {1..10}; do
-        if tailscale ping -c 1 --timeout=2s "$TS_HOSTNAME" > /dev/null 2>&1; then
+        if tailscale ping -c 1 --timeout=2s "$TS_NODE_NAME" > /dev/null 2>&1; then
             ping_success=1
             break
         fi

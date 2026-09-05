@@ -84,8 +84,8 @@ write_files:
 
       # web traffic (maps Tailnet HTTPS -> local UNIX socket)
       [[services]]
-      name         = "YOUR_FORGEJO_HOSTNAME"
-      hostname     = "YOUR_FORGEJO_HOSTNAME"
+      name         = "YOUR_TAILSCALE_MACHINE_NAME"
+      hostname     = "YOUR_TAILSCALE_MACHINE_NAME"
       backend_addr = "unix:///run/forgejo/forgejo.sock"
 
   # tsbridge systemd service unit configuration
@@ -122,11 +122,11 @@ write_files:
       ROOT             = /var/lib/forgejo/data/forgejo-repositories
 
       [server]
-      DOMAIN           = forgejo-appliance.YOUR_TS_TAILNET.ts.net
+      DOMAIN           = YOUR_TAILSCALE_MACHINE_NAME.YOUR_TS_TAILNET.ts.net
       PROTOCOL         = http+unix
       HTTP_ADDR        = /run/forgejo/forgejo.sock
       HTTP_PORT        = 3000
-      ROOT_URL         = https://forgejo-appliance.YOUR_TS_TAILNET.ts.net/
+      ROOT_URL         = https://YOUR_TAILSCALE_MACHINE_NAME.YOUR_TS_TAILNET.ts.net/
       DISABLE_SSH      = true
 
       [database]
