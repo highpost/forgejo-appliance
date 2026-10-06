@@ -3,7 +3,7 @@
 setopt ERR_EXIT
 setopt PIPE_FAIL
 
-# ensure operations run from the appliance repository root
+# run from the appliance root
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
 
@@ -28,7 +28,9 @@ cleanup() {
         if orb list 2>/dev/null | grep -qw "$FORGEJO_VM"; then
             log_info "    purging test user '$SEED_USER' from Forgejo..."
             orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin \
-                /home/forgejo-admin/bin/forgejo admin user delete --username "$SEED_USER" --purge -c /etc/forgejo/app.ini >/dev/null 2>&1 || true
+                /home/forgejo-admin/bin/forgejo admin       \
+                  user delete --username "$SEED_USER"       \
+                              --purge -c /etc/forgejo/app.ini >/dev/null 2>&1 || true
         fi
     fi
 
@@ -71,11 +73,11 @@ main() {
     log_info "Step 1/5: Seeding test data in Forgejo..."
     log_info "    creating seed user '$SEED_USER'..."
     orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin \
-        /home/forgejo-admin/bin/forgejo admin user create \
-        --username "$SEED_USER" \
-        --password "$seed_pass" \
-        --email "$seed_email" \
-        -c /etc/forgejo/app.ini >/dev/null
+        /home/forgejo-admin/bin/forgejo admin       \
+          user create --username "$SEED_USER"       \
+                      --password "$seed_pass"       \
+                      --email "$seed_email"         \
+                      -c /etc/forgejo/app.ini >/dev/null
 
     log_info "    initializing test Git repository '$seed_repo' with initial commit..."
     orb exec -m "$FORGEJO_VM" curl -s -S -f -u "${SEED_USER}:${seed_pass}" \
@@ -86,7 +88,8 @@ main() {
 
     # verify seed user and repository exist
     if ! orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin \
-        /home/forgejo-admin/bin/forgejo admin user list -c /etc/forgejo/app.ini 2>/dev/null | grep -qw "$SEED_USER"; then
+        /home/forgejo-admin/bin/forgejo admin            \
+          user list -c /etc/forgejo/app.ini 2>/dev/null | grep -qw "$SEED_USER"; then
         log_err "Failed to verify seed user '$SEED_USER' in database."
         exit 1
     fi
@@ -114,14 +117,15 @@ main() {
     echo ""
     log_info "Step 3/5: Introducing post-backup canary mutation..."
     orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin \
-        /home/forgejo-admin/bin/forgejo admin user create \
-        --username "$canary_user" \
-        --password "$canary_pass" \
-        --email "$canary_email" \
-        -c /etc/forgejo/app.ini >/dev/null
+        /home/forgejo-admin/bin/forgejo admin       \
+          user create --username "$canary_user"     \
+                      --password "$canary_pass"     \
+                      --email "$canary_email"       \
+                      -c /etc/forgejo/app.ini >/dev/null
 
     if ! orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin \
-        /home/forgejo-admin/bin/forgejo admin user list -c /etc/forgejo/app.ini 2>/dev/null | grep -qw "$canary_user"; then
+        /home/forgejo-admin/bin/forgejo admin            \
+          user list -c /etc/forgejo/app.ini 2>/dev/null | grep -qw "$canary_user"; then
         log_err "Failed to create canary user '$canary_user'."
         exit 1
     fi

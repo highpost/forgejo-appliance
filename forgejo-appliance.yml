@@ -113,7 +113,7 @@ write_files:
     owner: root:root
     permissions: '0660'
     content: |
-      APP_NAME         = Private Forgejo
+      APP_NAME         = Forgejo Appliance
       RUN_USER         = forgejo-admin
       WORK_PATH        = /var/lib/forgejo
       RUN_MODE         = prod

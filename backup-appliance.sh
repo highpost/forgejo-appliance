@@ -3,7 +3,7 @@
 setopt ERR_EXIT
 setopt PIPE_FAIL
 
-# ensure operations run from the appliance repository root (e.g. when invoked by launchd)
+# run from the appliance root
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
 
