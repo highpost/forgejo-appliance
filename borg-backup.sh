@@ -58,7 +58,7 @@ main() {
         exit $borg_err
     fi
 
-    log_info "🎉 Backup appliance pipeline completed successfully!"
+    log_info "🎉 Borg backup pipeline completed successfully!"
 }
 
 main "$@"

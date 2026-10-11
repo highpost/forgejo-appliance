@@ -15,10 +15,10 @@ main() {
 
     if [ -z "$target_archive" ]; then
         log_err "Missing archive name."
-        echo "Usage: ./restore-appliance.sh <archive_name>"
+        echo "Usage: ./borg-restore.sh <archive_name>"
         echo ""
         log_info "Listing available remote backups:"
-        ./list-remote-backups.sh
+        ./list-borg-backups.sh
         exit 1
     fi
 

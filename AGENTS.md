@@ -5,11 +5,11 @@
 ## build, test and lifecycle commands
 
 * **bootstrap:** `./bootstrap-appliance.sh`
-* **backup:** `./backup-appliance.sh`
-* **restore:** `./restore-appliance.sh <archive_name>`
-* **list remote backups:** `./list-remote-backups.sh`
+* **Borg backup:** `./borg-backup.sh`
+* **Borg restore:** `./borg-restore.sh <archive_name>`
+* **list Borg backups:** `./list-borg-backups.sh`
 * **test / lifecycle verification:** `./test-appliance.sh`
-* **test backup & restore:** `./test-backup.sh`
+* **test backup & restore:** `./test-borg-backup.sh`
 * **teardown (preserve state):** `./teardown-appliance.sh`
 * **teardown (purge TS node and certs):** `./teardown-appliance.sh --purge`
 * **store TS secret in Keychain:** `./store-ts-oauth-client-secret.sh`
@@ -31,10 +31,10 @@
 * **black box model:** No SSH access to the appliance. Interact only via Tailscale/`tsbridge` HTTPS or `orb exec` for orchestration.
 * **target architecture:** `linux/arm64` binaries (Forgejo, `tsbridge`) for Apple Silicon host.
 * **socket IPC paths:** Localize UNIX sockets in the VM filesystem (`/run/forgejo/forgejo.sock` and `/var/run/postgresql`).
-* **ephemeral appliance state:** The VM is immutable. Persistent state is restored/dumped across lifecycles:
+* **ephemeral appliance state:** The VM is immutable. Persistent state is restored/dumped across lifecycles via logical backups:
   * **Tailscale state and TLS certs:** Cached in Apple Keychain (`$TS_STATE_CACHE`).
-  * **app data and repositories:** Archived in `forgejo-backup.tar.gz`.
-  * **database:** Dumped in `forgejo-db.sql`.
+  * **app data and repositories:** Archived logically in `forgejo-backup.tar.gz`.
+  * **database:** Dumped as a logical plain-text SQL stream in `forgejo-db.sql`.
 * **Tailscale DNS leases:** Allow sufficient convergence time (~3 min on `--purge`) when deleting nodes via API to prevent MagicDNS hostname collision suffixes.
 
 ## boundaries and security

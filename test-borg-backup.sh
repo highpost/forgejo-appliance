@@ -104,7 +104,7 @@ main() {
     # step 2: backup to custom archive
     echo ""
     log_info "Step 2/5: Creating snapshot '::$TEST_ARCHIVE' in Borg repo..."
-    ./backup-appliance.sh "$TEST_ARCHIVE"
+    ./borg-backup.sh "$TEST_ARCHIVE"
 
     log_info "    verifying snapshot in remote Borg repo..."
     if ! borg info "::$TEST_ARCHIVE" >/dev/null 2>&1; then
@@ -134,7 +134,7 @@ main() {
     # step 4: restore from snapshot
     echo ""
     log_info "Step 4/5: Restoring appliance from snapshot '::$TEST_ARCHIVE'..."
-    ./restore-appliance.sh "$TEST_ARCHIVE"
+    ./borg-restore.sh "$TEST_ARCHIVE"
 
     # step 5: verify restored integrity
     echo ""
