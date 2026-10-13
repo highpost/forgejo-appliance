@@ -24,18 +24,18 @@
 * **service orchestration:** Use `systemd` for in-VM service orchestration and lifecycle management.
 * **VM provisioning:** Use declarative `cloud-init` (`forgejo-appliance.yml`) for initial environment, users and package setup.
 * **socket IPC:** Prefer UNIX sockets over TCP/IP ports for all inter-process communication.
-* **idempotency:** Keep all scripts idempotent; assume the VM is ephemeral and built from scratch.
+* **idempotency:** Keep all scripts idempotent; assume the VM is built from scratch and can be rebuilt at any time.
 
 ## architecture and state management
 
 * **black box model:** No SSH access to the appliance. Interact only via Tailscale/`tsbridge` HTTPS or `orb exec` for orchestration.
 * **target architecture:** `linux/arm64` binaries (Forgejo, `tsbridge`) for Apple Silicon host.
 * **socket IPC paths:** Localize UNIX sockets in the VM filesystem (`/run/forgejo/forgejo.sock` and `/var/run/postgresql`).
-* **ephemeral appliance state:** The VM is immutable. Persistent state is restored/dumped across lifecycles via logical backups:
-  * **Tailscale state and TLS certs:** Cached in Apple Keychain (`$TS_STATE_CACHE`).
-  * **app data and repositories:** Archived logically in `forgejo-backup.tar.gz`.
-  * **database:** Dumped as a logical plain-text SQL stream in `forgejo-db.sql`.
 * **Tailscale DNS leases:** Allow sufficient convergence time (~3 min on `--purge`) when deleting nodes via API to prevent MagicDNS hostname collision suffixes.
+* **persistent state across lifecycles:** The VM instance is immutable and disposable. Persistent state is restored/dumped across rebuilds via logical backups:
+  * **Tailscale state and TLS certs:** Cached in Apple Keychain (`$TS_STATE_CACHE`).
+  * **app data and repositories:** Archived in `forgejo-backup.tar.gz` (bare git repos, avatars, attachments, `app.ini`).
+  * **database:** Dumped in `forgejo-db.sql` (relational metadata: user accounts, permissions, issues, PRs, comments).
 
 ## boundaries and security
 

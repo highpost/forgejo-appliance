@@ -227,16 +227,16 @@ The solution is to flush the system completely:
 
 This appliance separates local lifecycle persistence from offsite disaster recovery:
 
-1. **Local Logical Backups (`teardown-appliance.sh` and `bootstrap-appliance.sh`):**
-   Local data persistence is built directly into the appliance lifecycle. Because the OrbStack VM is ephemeral and treated as immutable infrastructure, we do not rely on binary VM disk snapshots. Instead, `teardown-appliance.sh` and `bootstrap-appliance.sh` work with **logical backups**:
-   - **PostgreSQL Database:** Dumped by `teardown-appliance.sh` as a plain-text logical SQL stream (`forgejo-db.sql` via `pg_dump -F p`). When `bootstrap-appliance.sh` provisions a fresh VM, it replays this SQL stream into PostgreSQL via `psql`.
-   - **Application Files & Repositories:** Archived as a compressed tarball (`forgejo-backup.tar.gz`) containing raw git repositories, avatars, attachments, and `app.ini`.
-   - **Tailscale & TLS Credentials:** Encrypted and cached in Apple Keychain (`$TS_STATE_CACHE`).
+1. **Local Backups (`teardown-appliance.sh` and `bootstrap-appliance.sh`):**
+   Because the OrbStack VM is treated as immutable infrastructure—destroyed and rebuilt from scratch rather than patched in place—we do not snapshot the entire VM disk. Instead, `teardown-appliance.sh` extracts the server's state into two complementary files on your macOS host, which `bootstrap-appliance.sh` restores into the fresh VM:
+   - **User Accounts and Metadata (`forgejo-db.sql`):** The relational database stores user accounts, authentication credentials, organization memberships, repository ownership and permissions, issues, pull requests, comments, reviews, webhooks, and SSH keys. Without this database, Forgejo has no user accounts, permissions, or project management data.
+   - **Git Repositories (`forgejo-backup.tar.gz`):** The filesystem archive stores the actual Git repositories (bare `.git` directories containing commits, branches, and trees), along with user avatars, release attachments and the Forgejo `app.ini` configuration.
+   - **Tailscale Identity & TLS Certs:** Encrypted and cached in Apple Keychain (`$TS_STATE_CACHE`) to preserve the node's WireGuard keys and Let's Encrypt certificates across rebuilds.
 
-   Because these are logical backups (SQL streams and file archives) rather than raw filesystem or database binary data files, they are completely portable across OS updates, container rebuilds, and PostgreSQL version upgrades.
+   Together, `forgejo-db.sql` (who has access, plus discussions) and `forgejo-backup.tar.gz` (the actual Git repositories) form the complete state of the server. Because these are logical exports (SQL statements and a tar archive) rather than raw disk blocks, they restore cleanly even across OS updates and PostgreSQL version upgrades.
 
 2. **Remote Offsite Backups (`borg-backup.sh` and `borg-restore.sh`):**
-   For automated, encrypted remote disaster recovery, we provide an **optional** [BorgBackup](https://borgbackup.readthedocs.io/) strategy targeting [rsync.net](https://www.rsync.net/). The `borg-backup.sh` and `borg-restore.sh` scripts take the local logical backup artifacts produced by `teardown-appliance.sh`, create client-side encrypted, block-deduplicated Borg snapshots in a remote repository, and restore from them when needed.
+   For automated, encrypted remote disaster recovery, we provide an **optional** [BorgBackup](https://borgbackup.readthedocs.io/) strategy targeting [rsync.net](https://www.rsync.net/). The `borg-backup.sh` and `borg-restore.sh` scripts take the local logical backup artifacts produced by `teardown-appliance.sh`, create client-side encrypted, block-deduplicated Borg snapshots in a remote repository and restore from them when needed.
 
 Borg provides client-side encryption and block-level deduplication. This is efficient for daily database dumps and repository tarballs, since Borg will only upload the exact bytes that change during the day.
 
@@ -299,25 +299,25 @@ When `BORG_RETENTION_POLICY` is set, it overrides the individual `BORG_KEEP_*` v
 
 ### Daily Backup Workflow
 
-To back up the Forgejo appliance offsite, you extract the state, push it to [rsync.net](https://rsync.net) and then rebuild the VM. The included `borg-backup.sh` script automates this Borg backup workflow:
+To back up the Forgejo appliance offsite, you extract the state with `teardown-appliance.sh`, push the backup files to [rsync.net](https://rsync.net) with `borg-backup.sh` and then rebuild the VM with `bootstrap-appliance.sh`:
 
 ```bash
+./teardown-appliance.sh
 ./borg-backup.sh
+./bootstrap-appliance.sh
 ```
 
 Under the hood, `borg-backup.sh` executes the following sequence:
 
-1. Safely halts the appliance and extracts a fresh logical backup to the macOS host (`./teardown-appliance.sh`).
-2. Creates an encrypted, deduplicated snapshot in Borg (`borg create ::{now:%Y-%m-%d} ./forgejo-backup.tar.gz ./forgejo-db.sql`).
-3. Cleans up old backups based on the retention policy configured in `config.env` (`borg prune`).
-4. Rebuilds the appliance and restores the logical state (`./bootstrap-appliance.sh`).
+1. Creates an encrypted, deduplicated snapshot of the host's local backup files in Borg (`borg create ::{now:%Y-%m-%d} ./forgejo-backup.tar.gz ./forgejo-db.sql`).
+2. Cleans up old backups based on the retention policy configured in `config.env` (`borg prune`).
 
 ### Automating with macOS `launchd`
 
-To run `borg-backup.sh` automatically every night (e.g., at 02:00), configure a macOS Launch Agent:
+To run the backup cycle automatically every night (e.g., at 02:00), configure a macOS Launch Agent:
 
 1. **Create the Launch Agent:**
-   Save the following XML to `~/Library/LaunchAgents/com.forgejo-appliance.backup.plist`. Ensure the `<string>` element contains the absolute path to your script:
+   Save the following XML to `~/Library/LaunchAgents/com.forgejo-appliance.backup.plist`. Ensure `WorkingDirectory` contains the absolute path to your repository:
 
    ```xml
    <?xml version="1.0" encoding="UTF-8"?>
@@ -327,10 +327,15 @@ To run `borg-backup.sh` automatically every night (e.g., at 02:00), configure a 
        <key>Label</key>
        <string>com.forgejo-appliance.backup</string>
        
+       <key>WorkingDirectory</key>
+       <!-- Replace with the absolute path on your macOS host: -->
+       <string>/Users/*YOUR_MAC_USERNAME*/*PATH_TO_REPO*</string>
+       
        <key>ProgramArguments</key>
        <array>
-           <!-- Replace with the absolute path on your macOS host: -->
-           <string>/Users/*YOUR_MAC_USERNAME*/*PATH_TO_REPO*/borg-backup.sh</string>
+           <string>/bin/zsh</string>
+           <string>-c</string>
+           <string>./teardown-appliance.sh &amp;&amp; ./borg-backup.sh &amp;&amp; ./bootstrap-appliance.sh</string>
        </array>
        
        <key>StartCalendarInterval</key>
@@ -364,22 +369,23 @@ You can inspect all available snapshots stored in your remote Borg backup repo:
 ./list-borg-backups.sh
 ```
 
-To restore the appliance from a Borg snapshot, run `borg-restore.sh` with an archive name taken from the output of `list-borg-backups.sh`:
+To restore the backup files from a Borg snapshot onto your macOS host, run `borg-restore.sh` with an archive name taken from the output of `list-borg-backups.sh`:
 
 ```bash
 ./borg-restore.sh <archive_name>
 ```
 
-For example:
+For example, to restore the `2026-09-02` snapshot and rebuild the appliance with the restored state:
 ```bash
+./teardown-appliance.sh
 ./borg-restore.sh 2026-09-02
+./bootstrap-appliance.sh
 ```
 
-This script safely coordinates the restoration:
+`borg-restore.sh` safely handles extracting the remote snapshot:
 1. Validates that the archive exists on the remote repository.
-2. Extracts and verifies the logical backup files (`forgejo-backup.tar.gz` and `forgejo-db.sql`) in an isolated temporary staging directory before altering the active appliance.
-3. Halts the active appliance with `./teardown-appliance.sh` and preserves the current host files as `.bak`.
-4. Injects the restored snapshot files and brings the appliance back up with `./bootstrap-appliance.sh`.
+2. Extracts and verifies the backup files (`forgejo-backup.tar.gz` and `forgejo-db.sql`) in an isolated temporary staging directory.
+3. Preserves any existing host backup files as `.bak` and copies the restored files into the working directory.
 
 ### Verify Backups and Restoration
 
@@ -397,7 +403,7 @@ This test is self-contained: it seeds a temporary test user and git repository w
 
 ### Software Updates
 
-The Forgejo appliance treats its OrbStack VM as immutable infrastructure. Think of the VM as a strictly defined, purpose-built appliance. It's not meant to be manually administered or patched over time. To prevent configuration drift and ensure stability, we don't perform in-place configuration or upgrades. When it's time to update Forgejo, PostgreSQL or `tsbridge`, you extract a logical backup, update the source definitions in `forgejo-appliance.yml`, destroy the old environment, deploy a new one and then inject your persisted state (logical SQL stream, repository archive, and Tailscale cache) back into the new environment. These tasks are performed by the `teardown-appliance.sh` and `bootstrap-appliance.sh` scripts.
+The Forgejo appliance treats its OrbStack VM as immutable infrastructure. Think of the VM as a strictly defined, purpose-built appliance. It's not meant to be manually administered or patched over time. To prevent configuration drift and ensure stability, we don't perform in-place configuration or upgrades. When it's time to update Forgejo, PostgreSQL or `tsbridge`, you extract a logical backup, update the source definitions in `forgejo-appliance.yml`, destroy the old environment, deploy a new one and then inject your persisted state (logical SQL stream, repository archive and Tailscale cache) back into the new environment. These tasks are performed by the `teardown-appliance.sh` and `bootstrap-appliance.sh` scripts.
 
 Software updates follow a simple three-step procedure:
 
@@ -433,8 +439,8 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `LICENSE` | [2-clause BSD license.](https://opensource.org/license/bsd-2-clause) |
 | `README.md` | This file. |
 | `bootstrap-appliance.sh` | Provisions the VM, injects Tailscale/TLS credentials from Keychain, restores logical database backups (SQL stream) and starts system services. |
-| `borg-backup.sh` | Orchestrates the teardown, Borg encrypted snapshot and prune, and fresh bootstrap cycle. |
-| `borg-restore.sh` | Extracts a specific remote Borg snapshot, safely halts the active appliance, and bootstraps with the restored state. |
+| `borg-backup.sh` | Sends the current copies of `forgejo-backup.tar.gz` and `forgejo-db.sql` to the Borg repository and prunes old archives. |
+| `borg-restore.sh` | Extracts `forgejo-backup.tar.gz` and `forgejo-db.sql` from a specified Borg archive onto the macOS host. |
 | `list-borg-backups.sh` | Lists available snapshot archives in the remote Borg backup repo. |
 | `store-ts-oauth-client-secret.sh` | Prompts for and securely stores the Tailscale OAuth Client Secret into the macOS host's Apple Keychain. |
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |

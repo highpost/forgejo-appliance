@@ -62,7 +62,7 @@ purge_ts_node() {
         exit 1
     fi
 
-    # swap the client ID and secret for an ephemeral bearer access token
+    # swap the client ID and secret for a short-lived bearer access token
     local oauth_reply
     oauth_reply=$(curl -s -u "$TS_OAUTH_CLIENT_ID:$ts_oauth_secret_value" \
         -d "grant_type=client_credentials" \

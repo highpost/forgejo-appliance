@@ -38,7 +38,7 @@ main() {
     stage_dir="$(mktemp -d)"
     trap 'rm -rf "$stage_dir"' EXIT
 
-    log_info "Step 1/4: Extracting archive '::$target_archive' to staging directory..."
+    log_info "Step 1/2: Extracting archive '::$target_archive' to staging directory..."
     (
         cd "$stage_dir"
         borg extract "::$target_archive"
@@ -60,10 +60,7 @@ main() {
         exit 1
     fi
 
-    log_info "Step 2/4: Halting active appliance..."
-    ./teardown-appliance.sh
-
-    log_info "Step 3/4: Staging restored data files on host..."
+    log_info "Step 2/2: Restoring backup files to host..."
     # preserve current host artifacts as .bak if present
     if [ -f "./forgejo-backup.tar.gz" ]; then
         cp "./forgejo-backup.tar.gz" "./forgejo-backup.tar.gz.bak"
@@ -75,10 +72,7 @@ main() {
     cp "$extracted_tar" "./forgejo-backup.tar.gz"
     cp "$extracted_sql" "./forgejo-db.sql"
 
-    log_info "Step 4/4: Rebuilding appliance with restored persistent data..."
-    ./bootstrap-appliance.sh
-
-    log_info "🎉 Appliance successfully restored from archive '::$target_archive'!"
+    log_info "🎉 Backup files successfully restored from archive '::$target_archive'!"
 }
 
 main "$@"

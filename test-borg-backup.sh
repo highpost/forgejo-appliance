@@ -103,8 +103,10 @@ main() {
 
     # step 2: backup to custom archive
     echo ""
-    log_info "Step 2/5: Creating snapshot '::$TEST_ARCHIVE' in Borg repo..."
+    log_info "Step 2/5: Extracting state and creating snapshot '::$TEST_ARCHIVE' in Borg repo..."
+    ./teardown-appliance.sh
     ./borg-backup.sh "$TEST_ARCHIVE"
+    ./bootstrap-appliance.sh
 
     log_info "    verifying snapshot in remote Borg repo..."
     if ! borg info "::$TEST_ARCHIVE" >/dev/null 2>&1; then
@@ -134,7 +136,9 @@ main() {
     # step 4: restore from snapshot
     echo ""
     log_info "Step 4/5: Restoring appliance from snapshot '::$TEST_ARCHIVE'..."
+    ./teardown-appliance.sh
     ./borg-restore.sh "$TEST_ARCHIVE"
+    ./bootstrap-appliance.sh
 
     # step 5: verify restored integrity
     echo ""
