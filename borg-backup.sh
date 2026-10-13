@@ -3,7 +3,7 @@
 setopt ERR_EXIT
 setopt PIPE_FAIL
 
-# run from the appliance root
+# run script from the appliance root directory
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
 
@@ -18,7 +18,7 @@ main() {
         exit 1
     fi
 
-    log_info "Creating encrypted deduplicated snapshot in Borg repo..."
+    log_info "Creating Borg snapshot."
     local archive_name="${1:-$BORG_ARCHIVE_NAME}"
     local archive_target="${archive_name:-::{now:%Y-%m-%d}}"
     if [[ "$archive_target" != *"::"* ]]; then
@@ -43,7 +43,7 @@ main() {
         borg prune "${prune_flags[@]}"
     fi
 
-    log_info "🎉 Borg backup completed successfully!"
+    log_info "Borg backup complete."
 }
 
 main "$@"

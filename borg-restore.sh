@@ -3,7 +3,7 @@
 setopt ERR_EXIT
 setopt PIPE_FAIL
 
-# run from the appliance root
+# run script from the appliance root directory
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR"
 
@@ -72,7 +72,7 @@ main() {
     cp "$extracted_tar" "./forgejo-backup.tar.gz"
     cp "$extracted_sql" "./forgejo-db.sql"
 
-    log_info "🎉 Backup files successfully restored from archive '::$target_archive'!"
+    log_info "Backup files restored from archive '::$target_archive'!"
 }
 
 main "$@"
