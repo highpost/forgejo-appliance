@@ -153,7 +153,7 @@ orb exec -m forgejo-appliance sudo -u forgejo-admin  \
 | `forgejo-admin` | The unprivileged application service account. It runs the internal Forgejo processes and owns the isolated `/var/lib/forgejo` data directories. |
 | `*[mirrored-user]*` | The privileged OrbStack hypervisor management account. OrbStack automatically provisions an account with a username that matches the host macOS user running the OrbStack app and then grants it passwordless `sudo` to facilitate host-to-guest automation. It acts as the default context for all `orb` commands. |
 | `postgres` | The unprivileged PostgreSQL service account. It runs the database server's background processes, so they can run without full root privileges. It also mirrors the default database superuser account. |
-| `root` | The privileged top-level Linux administrative account. It runs the `tsbridge` service and is also necessary for complete system access during Borg backup and restore operations. |
+| `root` | The privileged top-level Linux administrative account. It runs the `tsbridge` service and is also necessary for complete system access during local backup and restore operations. |
 
 ---
 
@@ -299,12 +299,10 @@ When `BORG_RETENTION_POLICY` is set, it overrides the individual `BORG_KEEP_*` v
 
 ### Daily Backup Workflow
 
-To back up the Forgejo appliance offsite, you extract the state with `teardown-appliance.sh`, push the backup files to [rsync.net](https://rsync.net) with `borg-backup.sh` and then rebuild the VM with `bootstrap-appliance.sh`:
+To send the current copies of `forgejo-backup.tar.gz` and `forgejo-db.sql` to [rsync.net](https://rsync.net), run `borg-backup.sh`:
 
 ```bash
-./teardown-appliance.sh
 ./borg-backup.sh
-./bootstrap-appliance.sh
 ```
 
 Under the hood, `borg-backup.sh` executes the following sequence:
@@ -314,10 +312,10 @@ Under the hood, `borg-backup.sh` executes the following sequence:
 
 ### Automating with macOS `launchd`
 
-To run the backup cycle automatically every night (e.g., at 02:00), configure a macOS Launch Agent:
+To run `borg-backup.sh` automatically every night (e.g., at 02:00), configure a macOS Launch Agent:
 
 1. **Create the Launch Agent:**
-   Save the following XML to `~/Library/LaunchAgents/com.forgejo-appliance.backup.plist`. Ensure `WorkingDirectory` contains the absolute path to your repository:
+   Save the following XML to `~/Library/LaunchAgents/com.forgejo-appliance.backup.plist`. Ensure the `<string>` element contains the absolute path to your script:
 
    ```xml
    <?xml version="1.0" encoding="UTF-8"?>
@@ -327,15 +325,10 @@ To run the backup cycle automatically every night (e.g., at 02:00), configure a 
        <key>Label</key>
        <string>com.forgejo-appliance.backup</string>
        
-       <key>WorkingDirectory</key>
-       <!-- Replace with the absolute path on your macOS host: -->
-       <string>/Users/*YOUR_MAC_USERNAME*/*PATH_TO_REPO*</string>
-       
        <key>ProgramArguments</key>
        <array>
-           <string>/bin/zsh</string>
-           <string>-c</string>
-           <string>./teardown-appliance.sh &amp;&amp; ./borg-backup.sh &amp;&amp; ./bootstrap-appliance.sh</string>
+           <!-- Replace with the absolute path on your macOS host: -->
+           <string>/Users/*YOUR_MAC_USERNAME*/*PATH_TO_REPO*/borg-backup.sh</string>
        </array>
        
        <key>StartCalendarInterval</key>
@@ -369,17 +362,15 @@ You can inspect all available snapshots stored in your remote Borg backup repo:
 ./list-borg-backups.sh
 ```
 
-To restore the backup files from a Borg snapshot onto your macOS host, run `borg-restore.sh` with an archive name taken from the output of `list-borg-backups.sh`:
+To restore the backup files (`forgejo-backup.tar.gz` and `forgejo-db.sql`) from a Borg snapshot onto your macOS host, run `borg-restore.sh` with an archive name taken from the output of `list-borg-backups.sh`:
 
 ```bash
 ./borg-restore.sh <archive_name>
 ```
 
-For example, to restore the `2026-09-02` snapshot and rebuild the appliance with the restored state:
+For example:
 ```bash
-./teardown-appliance.sh
 ./borg-restore.sh 2026-09-02
-./bootstrap-appliance.sh
 ```
 
 `borg-restore.sh` safely handles extracting the remote snapshot:
@@ -389,13 +380,13 @@ For example, to restore the `2026-09-02` snapshot and rebuild the appliance with
 
 ### Verify Backups and Restoration
 
-To validate the Borg backup, divergence detection and restoration pipeline end-to-end:
+To validate the Borg backup, listing, divergence rollback and restoration pipeline end-to-end:
 
 ```bash
 ./test-borg-backup.sh
 ```
 
-This test is self-contained: it seeds a temporary test user and git repository with commits, creates an encrypted backup in your Borg repository, simulates an unbacked-up mutation, restores from the snapshot, verifies database and Git filesystem integrity and cleans up the test snapshot.
+This test is self-contained and non-destructive: it stashes any existing host backup files, generates synthetic `forgejo-backup.tar.gz` and `forgejo-db.sql` artifacts, pushes an encrypted snapshot to your Borg repository, mutates the local files, restores from the remote snapshot, verifies SHA-256 checksums bit-for-bit and cleans up the remote test snapshot.
 
 ---
 
@@ -446,7 +437,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
 | `teardown-appliance.sh` | Gracefully halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
-| `test-borg-backup.sh` | Automates end-to-end backup, state divergence, and restoration verification with self-seeded test users and Git repositories. |
+| `test-borg-backup.sh` | Automates end-to-end verification of the Borg backup, listing and restoration pipeline using checksum-verified test artifacts. |
 | `forgejo-backup.tar.gz` | The filesystem state (logical archive). Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
 | `forgejo-db.sql` | The relational state (logical backup). Plain-text SQL stream containing DDL and INSERT/COPY statements for user accounts, repository metadata, issues, pull requests, comments, webhooks, SSH public keys and application tokens. |
 
