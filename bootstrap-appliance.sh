@@ -7,7 +7,7 @@ source "./utils.sh"
 
 # create and initialize an OrbStack VM
 provision_vm() {
-    orb create ubuntu:26.04 "$FORGEJO_VM" --user-data "$FORGEJO_YAML"
+    orb create "$UBUNTU_SERVER" "$FORGEJO_VM" --user-data "$FORGEJO_YAML"
     orb -m "$FORGEJO_VM" cloud-init status --wait || true
 }
 
