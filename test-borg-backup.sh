@@ -100,22 +100,22 @@ EOF
     fi
     log_info "✅ BACKUP: Snapshot verified in remote Borg repository."
 
-    # step 3: mutate local files to simulate state divergence / corruption
+    # step 3: modify local files to simulate state divergence
     echo ""
-    log_info "Step 3/5: Mutating local host bundle files to simulate divergence..."
-    echo "mutated-tar-content-$timestamp" > "./forgejo-backup.tar.gz"
-    echo "-- mutated SQL content ($timestamp)" > "./forgejo-db.sql"
+    log_info "Step 3/5: Modifying local host bundle files to simulate divergence..."
+    echo "modified-tar-content-$timestamp" > "./forgejo-backup.tar.gz"
+    echo "-- modified SQL content ($timestamp)" > "./forgejo-db.sql"
 
-    local mutated_tar_hash
-    local mutated_sql_hash
-    mutated_tar_hash=$(shasum -a 256 "./forgejo-backup.tar.gz" | awk '{print $1}')
-    mutated_sql_hash=$(shasum -a 256 "./forgejo-db.sql" | awk '{print $1}')
+    local modified_tar_hash
+    local modified_sql_hash
+    modified_tar_hash=$(shasum -a 256 "./forgejo-backup.tar.gz" | awk '{print $1}')
+    modified_sql_hash=$(shasum -a 256 "./forgejo-db.sql" | awk '{print $1}')
 
-    if [ "$mutated_tar_hash" = "$expected_tar_hash" ] || [ "$mutated_sql_hash" = "$expected_sql_hash" ]; then
-        log_err "Failed to mutate local host bundle files."
+    if [ "$modified_tar_hash" = "$expected_tar_hash" ] || [ "$modified_sql_hash" = "$expected_sql_hash" ]; then
+        log_err "Failed to modify local host bundle files."
         exit 1
     fi
-    log_info "✅ DIVERGENCE: Local host bundle mutated."
+    log_info "✅ DIVERGENCE: Local host bundle modified."
 
     # step 4: restore from Borg snapshot
     echo ""

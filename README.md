@@ -386,7 +386,7 @@ To validate the Borg backup, listing, divergence rollback and restoration pipeli
 ./test-borg-backup.sh
 ```
 
-This test is self-contained and non-destructive: it stashes any existing host backup files, generates a synthetic `forgejo-backup.tar.gz` and `forgejo-db.sql` backup bundle, pushes an encrypted snapshot to your Borg repository, mutates the local files, restores from the remote snapshot, verifies SHA-256 checksums bit-for-bit and cleans up the remote test snapshot.
+This test is self-contained and non-destructive: it stashes any existing host backup files, generates a synthetic `forgejo-backup.tar.gz` and `forgejo-db.sql` backup bundle, pushes an encrypted snapshot to your Borg repository, modifies the local files, restores from the remote snapshot, verifies SHA-256 checksums bit-for-bit and cleans up the remote test snapshot.
 
 ---
 
