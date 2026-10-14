@@ -66,8 +66,8 @@ main() {
         fi
     done
 
-    # step 1: generate synthetic backup artifacts and record checksums
-    log_info "Step 1/5: Generating test backup artifacts (forgejo-backup.tar.gz and forgejo-db.sql)..."
+    # step 1: generate synthetic backup bundle and record checksums
+    log_info "Step 1/5: Generating test backup bundle (forgejo-backup.tar.gz and forgejo-db.sql)..."
     local payload_dir="$STASH_DIR/payload"
     mkdir -p "$payload_dir/repositories/test.git"
     echo "ref: refs/heads/main ($timestamp)" > "$payload_dir/repositories/test.git/HEAD"
@@ -86,7 +86,7 @@ EOF
     expected_sql_hash=$(shasum -a 256 "./forgejo-db.sql" | awk '{print $1}')
     log_info "    forgejo-backup.tar.gz SHA-256: $expected_tar_hash"
     log_info "    forgejo-db.sql        SHA-256: $expected_sql_hash"
-    log_info "✅ SEED: Test backup artifacts generated on host."
+    log_info "✅ SEED: Test backup bundle generated on host."
 
     # step 2: push snapshot to Borg repository
     echo ""
@@ -102,7 +102,7 @@ EOF
 
     # step 3: mutate local files to simulate state divergence / corruption
     echo ""
-    log_info "Step 3/5: Mutating local host artifacts to simulate divergence..."
+    log_info "Step 3/5: Mutating local host bundle files to simulate divergence..."
     echo "mutated-tar-content-$timestamp" > "./forgejo-backup.tar.gz"
     echo "-- mutated SQL content ($timestamp)" > "./forgejo-db.sql"
 
@@ -112,19 +112,19 @@ EOF
     mutated_sql_hash=$(shasum -a 256 "./forgejo-db.sql" | awk '{print $1}')
 
     if [ "$mutated_tar_hash" = "$expected_tar_hash" ] || [ "$mutated_sql_hash" = "$expected_sql_hash" ]; then
-        log_err "Failed to mutate local host artifacts."
+        log_err "Failed to mutate local host bundle files."
         exit 1
     fi
-    log_info "✅ DIVERGENCE: Local host artifacts mutated."
+    log_info "✅ DIVERGENCE: Local host bundle mutated."
 
     # step 4: restore from Borg snapshot
     echo ""
-    log_info "Step 4/5: Restoring artifacts from snapshot '::$TEST_ARCHIVE'..."
+    log_info "Step 4/5: Restoring bundle from snapshot '::$TEST_ARCHIVE'..."
     ./borg-restore.sh "$TEST_ARCHIVE"
 
     # step 5: verify restored file checksums and .bak preservation
     echo ""
-    log_info "Step 5/5: Validating restored artifact checksums and .bak preservation..."
+    log_info "Step 5/5: Validating restored bundle checksums and .bak preservation..."
 
     local restored_tar_hash
     local restored_sql_hash

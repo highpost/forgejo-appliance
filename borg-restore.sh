@@ -44,7 +44,7 @@ main() {
         borg extract "::$target_archive"
     )
 
-    # locate extracted backup artifacts
+    # locate extracted backup bundles
     local extracted_tar
     local extracted_sql
     extracted_tar=$(find "$stage_dir" -type f -name "forgejo-backup.tar.gz" | head -n 1)
@@ -61,7 +61,7 @@ main() {
     fi
 
     log_info "Step 2/2: Restoring backup files to host..."
-    # preserve current host artifacts as .bak if present
+    # back up existing bundles
     if [ -f "./forgejo-backup.tar.gz" ]; then
         cp "./forgejo-backup.tar.gz" "./forgejo-backup.tar.gz.bak"
     fi

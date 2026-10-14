@@ -236,7 +236,7 @@ This appliance separates local lifecycle persistence from offsite disaster recov
    Together, `forgejo-db.sql` (who has access, plus discussions) and `forgejo-backup.tar.gz` (the actual Git repositories) form the complete state of the server. Because these are logical exports (SQL statements and a tar archive) rather than raw disk blocks, they restore cleanly even across OS updates and PostgreSQL version upgrades.
 
 2. **Remote Offsite Backups (`borg-backup.sh` and `borg-restore.sh`):**
-   For automated, encrypted remote disaster recovery, we provide an **optional** [BorgBackup](https://borgbackup.readthedocs.io/) strategy targeting [rsync.net](https://www.rsync.net/). The `borg-backup.sh` and `borg-restore.sh` scripts take the local logical backup artifacts produced by `teardown-appliance.sh`, create client-side encrypted, block-deduplicated Borg snapshots in a remote repository and restore from them when needed.
+   For automated, encrypted remote disaster recovery, we provide an **optional** [BorgBackup](https://borgbackup.readthedocs.io/) strategy targeting [rsync.net](https://www.rsync.net/). The `borg-backup.sh` and `borg-restore.sh` scripts take the local logical backup bundle produced by `teardown-appliance.sh`, create client-side encrypted, block-deduplicated Borg snapshots in a remote repository and restore from them when needed.
 
 Borg provides client-side encryption and block-level deduplication. This is efficient for daily database dumps and repository tarballs, since Borg will only upload the exact bytes that change during the day.
 
@@ -386,7 +386,7 @@ To validate the Borg backup, listing, divergence rollback and restoration pipeli
 ./test-borg-backup.sh
 ```
 
-This test is self-contained and non-destructive: it stashes any existing host backup files, generates synthetic `forgejo-backup.tar.gz` and `forgejo-db.sql` artifacts, pushes an encrypted snapshot to your Borg repository, mutates the local files, restores from the remote snapshot, verifies SHA-256 checksums bit-for-bit and cleans up the remote test snapshot.
+This test is self-contained and non-destructive: it stashes any existing host backup files, generates a synthetic `forgejo-backup.tar.gz` and `forgejo-db.sql` backup bundle, pushes an encrypted snapshot to your Borg repository, mutates the local files, restores from the remote snapshot, verifies SHA-256 checksums bit-for-bit and cleans up the remote test snapshot.
 
 ---
 
@@ -437,7 +437,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
 | `teardown-appliance.sh` | Halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and then destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
-| `test-borg-backup.sh` | Automates end-to-end verification of the Borg backup, listing and restoration pipeline using checksum-verified test artifacts. |
+| `test-borg-backup.sh` | Automates end-to-end verification of the Borg backup, listing and restoration pipeline using a checksum-verified test bundle. |
 | `forgejo-backup.tar.gz` | The filesystem state (logical archive). Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
 | `forgejo-db.sql` | The relational state (logical backup). Plain-text SQL stream containing DDL and INSERT/COPY statements for user accounts, repository metadata, issues, pull requests, comments, webhooks, SSH public keys and application tokens. |
 

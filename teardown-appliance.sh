@@ -46,7 +46,7 @@ backup_appliance_state() {
         orb exec -m "$FORGEJO_VM" sudo touch /tmp/forgejo-db.sql
     fi
 
-    # pull both backup artifacts to the Mac host
+    # pull backup bundle files to the Mac host
     orb exec -m "$FORGEJO_VM" sudo cat /tmp/forgejo-backup.tar.gz > "./forgejo-backup.tar.gz"
     orb exec -m "$FORGEJO_VM" sudo cat /tmp/forgejo-db.sql > "./forgejo-db.sql"
 }

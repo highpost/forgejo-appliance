@@ -14,7 +14,7 @@ main() {
     validate_borg_prerequisites
 
     if [ ! -f "./forgejo-backup.tar.gz" ] || [ ! -f "./forgejo-db.sql" ]; then
-        log_err "Backup artifacts (./forgejo-backup.tar.gz and ./forgejo-db.sql) not found on host."
+        log_err "Backup bundles (./forgejo-backup.tar.gz and ./forgejo-db.sql) not found on host."
         exit 1
     fi
 
