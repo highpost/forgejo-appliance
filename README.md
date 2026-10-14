@@ -425,10 +425,10 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 
 | File | Description |
 | :--- | :--- |
+| `README.md` | This file. |
+| `LICENSE` | [2-clause BSD license.](https://opensource.org/license/bsd-2-clause) |
 | `config.env` | Configuration variables. |
 | `forgejo-appliance.yml` | `cloud-init` YAML file. |
-| `LICENSE` | [2-clause BSD license.](https://opensource.org/license/bsd-2-clause) |
-| `README.md` | This file. |
 | `bootstrap-appliance.sh` | Provisions the VM, injects Tailscale/TLS credentials from Keychain, restores logical database backups (SQL stream) and starts system services. |
 | `borg-backup.sh` | Sends the current copies of `forgejo-backup.tar.gz` and `forgejo-db.sql` to the Borg repository and prunes old archives. |
 | `borg-restore.sh` | Extracts `forgejo-backup.tar.gz` and `forgejo-db.sql` from a specified Borg archive onto the macOS host. |
