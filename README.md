@@ -143,7 +143,7 @@ orb exec -m forgejo-appliance sudo -u forgejo-admin  \
   /home/forgejo-admin/bin/forgejo admin sendmail     \
   --config /etc/forgejo/app.ini                      \
   --title "Infrastructure Test Alert"                \
-  --content "Forgejo notifications are successfully reaching your primary routing pool."
+  --content "Forgejo notifications are reaching your primary routing pool."
 ```
 
 ### Users
@@ -416,7 +416,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | **Tailscale** | An open source mesh VPN based on WireGuard. |
 | **Ubuntu Server** | Provides a complete Linux system environment. |
 | **`systemd`** | Orchestrates service lifecycles and UNIX socket dependencies between Forgejo, PostgreSQL and the `tsbridge`. |
-| **PostgreSQL** | A relational database server configured with local UNIX socket trust authentication. While Forgejo includes SQLite in its binary, PostgreSQL can gracefully handle concurrent writes, making it a safer and more performant choice for a small to medium-sized server at the footprint cost of about ~150 MB storage and ~100 MB RAM. |
+| **PostgreSQL** | A relational database server configured with local UNIX socket trust authentication. While Forgejo includes SQLite in its binary, PostgreSQL can handle concurrent writes, making it a safer and more performant choice for a small to medium-sized server at the footprint cost of about ~150 MB storage and ~100 MB RAM. |
 | **`tsbridge`** | A Tailscale-aware reverse proxy. Maps the Tailnet HTTPS ingress layer directly to Forgejo's local UNIX socket. |
 | **Apple Keychain** | Native macOS secrets management.
 | **Google SMTP** | Maps a Google Workspace email alias to Forgejo for reliable, authenticated outbound system notifications. |
@@ -435,7 +435,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `list-borg-backups.sh` | Lists available snapshot archives in the remote Borg backup repo. |
 | `store-ts-oauth-client-secret.sh` | Prompts for and securely stores the Tailscale OAuth Client Secret into the macOS host's Apple Keychain. |
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
-| `teardown-appliance.sh` | Gracefully halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
+| `teardown-appliance.sh` | Halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
 | `test-borg-backup.sh` | Automates end-to-end verification of the Borg backup, listing and restoration pipeline using checksum-verified test artifacts. |
 | `forgejo-backup.tar.gz` | The filesystem state (logical archive). Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
