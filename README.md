@@ -435,7 +435,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | `list-borg-backups.sh` | Lists available snapshot archives in the remote Borg backup repo. |
 | `store-ts-oauth-client-secret.sh` | Prompts for and securely stores the Tailscale OAuth Client Secret into the macOS host's Apple Keychain. |
 | `store-borg-passphrase.sh` | Prompts for and securely stores the Borg backup repo passphrase into the macOS host's Apple Keychain. |
-| `teardown-appliance.sh` | Halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
+| `teardown-appliance.sh` | Halts services, extracts a logical backup (plain-text SQL stream and repository tarball) and Let's Encrypt certificates to the macOS host, and then destroys the VM instance. Includes a `--purge` flag for Tailscale node eviction. |
 | `test-appliance.sh` | Automates a multi-cycle lifecycle stress test to validate infrastructure resilience, network convergence and database persistence. |
 | `test-borg-backup.sh` | Automates end-to-end verification of the Borg backup, listing and restoration pipeline using checksum-verified test artifacts. |
 | `forgejo-backup.tar.gz` | The filesystem state (logical archive). Contains the raw git repository data, user avatars, release attachments, git LFS (Large File Storage) objects and the Forgejo `app.ini` configuration file. |
