@@ -447,11 +447,11 @@ The appliance stores its sensitive credentials in the macOS Apple Keychain. `boo
 
 We maintain three Keychain items:
 
-| Keychain Item | Variable | Type | Description |
-| :--- | :--- | :--- | :--- |
-| `tsbridge-oauth-secret` | `$TS_OAUTH_SECRET_KEY` | Operator-Managed | Tailscale OAuth client secret used by `tsbridge` to automatically authenticate the appliance to your tailnet (stored via `store-ts-oauth-client-secret.sh`). |
-| `borg-passphrase` | `$BORG_PASSPHRASE_KEY` | Operator-Managed | Passphrase used by Borg to encrypt and decrypt offsite backup snapshots on rsync.net (stored via `store-borg-passphrase.sh`). |
-| `tsbridge-state-cache` | `$TS_STATE_CACHE` | Appliance-Managed | Runtime cryptographic state from `/var/lib/tsbridge`: bundles the **WireGuard node private key** (prevents MagicDNS collisions) and the **ACME TLS certificate & key** (avoids Let's Encrypt rate limits). Managed automatically by `bootstrap-appliance.sh` and `teardown-appliance.sh`. |
+| Keychain Item | Variable | Type | Size | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `tsbridge-oauth-secret` | `$TS_OAUTH_SECRET_KEY` | Operator-Managed | ~50–70 bytes | Tailscale OAuth client secret used by `tsbridge` to automatically authenticate the appliance to your tailnet (stored via `store-ts-oauth-client-secret.sh`). |
+| `borg-passphrase` | `$BORG_PASSPHRASE_KEY` | Operator-Managed | ~20–64 bytes | Passphrase used by Borg to encrypt and decrypt offsite backup snapshots on rsync.net (stored via `store-borg-passphrase.sh`). |
+| `tsbridge-state-cache` | `$TS_STATE_CACHE` | Appliance-Managed | ~90 bytes | Runtime cryptographic state from `/var/lib/tsbridge`: bundles the **WireGuard node private key** (prevents MagicDNS collisions) and the **ACME TLS certificate & key** (avoids Let's Encrypt rate limits). Managed automatically by `bootstrap-appliance.sh` and `teardown-appliance.sh`. |
 
 Due to macOS sandbox restrictions, a guest VM cannot directly query its host for credentials.
 
