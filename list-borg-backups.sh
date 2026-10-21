@@ -12,7 +12,6 @@ source "./utils.sh"
 
 main() {
     validate_borg_prerequisites
-
     log_info "Querying remote backups from: $BORG_REPO"
     echo ""
     borg list "$@"
