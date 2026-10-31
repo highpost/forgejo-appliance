@@ -506,4 +506,3 @@ PostgreSQL uses Multi-Version Concurrency Control (MVCC) and row-level locking. 
 
 ## Future Work
 * **CI/CD**: Continuous Integration (Forgejo Actions) requires a separate sidecar VM.
-* **Database**: Turso could make a better match for Forgejo than PostgreSQL.
