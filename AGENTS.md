@@ -13,6 +13,7 @@
 * **teardown (preserve state):** `./teardown-appliance.sh`
 * **teardown (purge TS node and certs):** `./teardown-appliance.sh --purge`
 * **store TS secret in Keychain:** `./store-ts-oauth-client-secret.sh`
+* **store Forgejo admin password in Keychain:** `./store-forgejo-admin-password.sh`
 * **store Borg passphrase in Keychain:** `./store-borg-passphrase.sh`
 * **status:** `orb list`
 

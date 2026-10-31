@@ -23,12 +23,12 @@ packages:
 
 # user provisioning
 users:
-  - name: forgejo-admin
+  - name: forgejo
     uid: 1001
     shell: /bin/bash
     system: false
-    comment: Forgejo Appliance administrator
-    home: /home/forgejo-admin
+    comment: Forgejo Appliance service user
+    home: /home/forgejo
     create_home: true
 
 # system files provisioning
@@ -39,7 +39,7 @@ write_files:
     permissions: '0660'
     content: |
       APP_NAME         = Forgejo Appliance
-      RUN_USER         = forgejo-admin
+      RUN_USER         = forgejo
       WORK_PATH        = /var/lib/forgejo
       RUN_MODE         = prod
 
@@ -58,7 +58,7 @@ write_files:
       DB_TYPE          = postgres
       HOST             = /var/run/postgresql
       NAME             = forgejo
-      USER             = forgejo-admin
+      USER             = forgejo
       PASSWORD         =
       SSL_MODE         = disable
 
@@ -89,14 +89,14 @@ write_files:
       [Service]
       RestartSec=2s
       Type=simple
-      User=forgejo-admin
-      Group=forgejo-admin
+      User=forgejo
+      Group=forgejo
       RuntimeDirectory=forgejo
       RuntimeDirectoryMode=0755
       WorkingDirectory=/var/lib/forgejo
-      ExecStart=/home/forgejo-admin/bin/forgejo web --config /etc/forgejo/app.ini
+      ExecStart=/home/forgejo/bin/forgejo web --config /etc/forgejo/app.ini
       Restart=always
-      Environment='USER=forgejo-admin HOME=/home/forgejo-admin FORGEJO_WORK_DIR=/var/lib/forgejo PGUSER=forgejo-admin PATH=/home/forgejo-admin/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+      Environment='USER=forgejo HOME=/home/forgejo FORGEJO_WORK_DIR=/var/lib/forgejo PGUSER=forgejo PATH=/home/forgejo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
       [Install]
       WantedBy=multi-user.target
@@ -159,20 +159,20 @@ runcmd:
   - until pg_isready; do sleep 1; done
 
   # create the default user
-  - sudo -u postgres psql -c "CREATE USER \"forgejo-admin\";"
-  - sudo -u postgres psql -c "CREATE DATABASE forgejo OWNER \"forgejo-admin\";"
+  - sudo -u postgres psql -c "CREATE USER forgejo;"
+  - sudo -u postgres psql -c "CREATE DATABASE forgejo OWNER forgejo;"
 
   # prepare explicit system data directories for Forgejo service runtimes
-  - mkdir -p /var/lib/forgejo/custom /var/lib/forgejo/data /var/lib/forgejo/log /etc/forgejo /home/forgejo-admin/bin /run/forgejo
-  - chown -R forgejo-admin:forgejo-admin /var/lib/forgejo /run/forgejo
+  - mkdir -p /var/lib/forgejo/custom /var/lib/forgejo/data /var/lib/forgejo/log /etc/forgejo /home/forgejo/bin /run/forgejo
+  - chown -R forgejo:forgejo /var/lib/forgejo /run/forgejo
   - chmod -R 770 /var/lib/forgejo /run/forgejo
 
   # download, extract and install the Forgejo Linux arm64 binary
   - curl -L https://codeberg.org/forgejo/forgejo/releases/download/v15.0.2/forgejo-15.0.2-linux-arm64.xz -o /tmp/forgejo.xz
   - unxz /tmp/forgejo.xz
-  - cp /tmp/forgejo /home/forgejo-admin/bin/forgejo
-  - chmod 755 /home/forgejo-admin/bin/forgejo
-  - chown forgejo-admin:forgejo-admin /home/forgejo-admin/bin/forgejo
+  - cp /tmp/forgejo /home/forgejo/bin/forgejo
+  - chmod 755 /home/forgejo/bin/forgejo
+  - chown forgejo:forgejo /home/forgejo/bin/forgejo
 
   # download, extract and install the tsbridge binary
   - mkdir -p /etc/tsbridge /var/lib/tsbridge
@@ -182,12 +182,12 @@ runcmd:
   - rm -f /tmp/tsbridge.tar.gz
 
   # user configuration
-  - usermod -p "*" forgejo-admin
+  - usermod -p "*" forgejo
 
-  # hand ownership of app.ini over to the admin group
-  - chown -R root:forgejo-admin /etc/forgejo
+  # hand ownership of app.ini over to the forgejo group
+  - chown -R root:forgejo /etc/forgejo
   - chmod 770 /etc/forgejo
-  - chown forgejo-admin:forgejo-admin /etc/forgejo/app.ini
+  - chown forgejo:forgejo /etc/forgejo/app.ini
   - chmod 660 /etc/forgejo/app.ini
 
   # generate a secure, randomized string for SECRET_KEY and inject it into the Forgejo configuration

@@ -96,12 +96,12 @@ verify_persistence() {
     log_info "--> testing data persistence..."
     
     # use the internal Forgejo CLI to check if the database survived
-    if orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin /home/forgejo-admin/bin/forgejo admin user list -c /etc/forgejo/app.ini 2>/dev/null | grep -q "stresstest"; then
+    if orb exec -m "$FORGEJO_VM" sudo -u forgejo /home/forgejo/bin/forgejo admin user list -c /etc/forgejo/app.ini 2>/dev/null | grep -q "stresstest"; then
         log_info "✅ DATA: success ('stresstest' user survived the rebuild!)"
     else
         if [ "$cycle_num" -eq 1 ]; then
             log_info "ℹ️  DATA: cycle 1 - creating 'stresstest' user for subsequent cycles..."
-            orb exec -m "$FORGEJO_VM" sudo -u forgejo-admin /home/forgejo-admin/bin/forgejo admin user create \
+            orb exec -m "$FORGEJO_VM" sudo -u forgejo /home/forgejo/bin/forgejo admin user create \
               --username stresstest \
               --password 'PersistenceTest123!' \
               --email stress@example.com \

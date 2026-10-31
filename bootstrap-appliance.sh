@@ -62,7 +62,7 @@ restore_appliance_data() {
         # ensure a clean destination layout exists inside the fresh VM
         orb exec -m "$FORGEJO_VM" sudo mkdir -p /var/lib/forgejo
         orb exec -m "$FORGEJO_VM" sudo tar -xzf /tmp/forgejo-backup.tar.gz -C /var/lib/forgejo/
-        orb exec -m "$FORGEJO_VM" sudo chown -R forgejo-admin:forgejo-admin /var/lib/forgejo
+        orb exec -m "$FORGEJO_VM" sudo chown -R forgejo:forgejo /var/lib/forgejo
         orb exec -m "$FORGEJO_VM" sudo chmod 644 /tmp/forgejo-db.sql
 
         # terminate any active locks and ensure the 'forgejo' role exists
@@ -116,11 +116,40 @@ start_appliance_services() {
     orb exec -m "$FORGEJO_VM" sudo systemctl restart tsbridge
 }
 
+# create the initial Forgejo administrator account if it does not already exist
+ensure_admin_user() {
+    local admin_user="${FORGEJO_ADMIN_USER:-forgejo-admin}"
+    if orb exec -m "$FORGEJO_VM" sudo -u forgejo \
+        /home/forgejo/bin/forgejo admin user list --config /etc/forgejo/app.ini 2>/dev/null | awk '{print $2}' | grep -qx "$admin_user"; then
+        return
+    fi
+
+    local admin_password
+    admin_password="$(security find-generic-password -s "$FORGEJO_ADMIN_PASSWORD_KEY" -w 2>/dev/null || true)"
+    if [ -z "$admin_password" ]; then
+        log_err "'$FORGEJO_ADMIN_PASSWORD_KEY' not found in Keychain. Run './store-forgejo-admin-password.sh' first."
+        exit 1
+    fi
+
+    printf "%s\n" "$admin_password" | orb exec -m "$FORGEJO_VM" sudo -u forgejo sh -c '
+        IFS= read -r pw
+        /home/forgejo/bin/forgejo admin user create \
+            --config /etc/forgejo/app.ini \
+            --username "$1" \
+            --password "$pw" \
+            --email "$2" \
+            --admin \
+            --must-change-password=false
+    ' _ "$admin_user" "$FORGEJO_ADMIN_EMAIL"
+    unset admin_password
+}
+
 main() {
     provision_vm
     setup_tsbridge_reverse_proxy
     restore_appliance_data
     start_appliance_services
+    ensure_admin_user
 }
 
 main "$@"
