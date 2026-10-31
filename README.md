@@ -8,16 +8,18 @@ While this blueprint is tailored for Forgejo, it can also serve as a pattern for
 
 ## Deployment Guide
 
-Deploying the appliance involves configuring Tailscale prerequisites (MagicDNS, an OAuth client secret and HTTPS), setting your parameters in `config.env` and `forgejo-appliance.yml` and running `./bootstrap-appliance.sh`. The script automates provisioning the Ubuntu Server VM in OrbStack, setting up PostgreSQL and Forgejo over UNIX sockets, and launching `tsbridge` to securely expose the instance over Tailscale HTTPS.
+Deploying the appliance involves configuring Tailscale prerequisites (MagicDNS, an OAuth client secret and HTTPS), setting some parameters in `config.env` and `forgejo-appliance.yml` and then running `./bootstrap-appliance.sh`. That script automates provisioning the Ubuntu Server VM in OrbStack, setting up PostgreSQL and Forgejo over UNIX sockets, and launching `tsbridge` to securely expose the instance over Tailscale HTTPS.
 
-### Enable Tailscale MagicDNS
+### `tsbridge` Configuration
+
+#### Enable Tailscale MagicDNS
 
 MagicDNS automatically maps human-readable hostnames to Tailscale IP addresses across your tailnet (e.g., `YOUR_MACHINE_NAME.YOUR_TAILNET.ts.net`). It allows devices to reach the appliance by name and is required for provisioning Tailscale HTTPS certificates.
 
 * Tailscale Admin Console
 * DNS → Enable MagicDNS
 
-### Generate a Tailscale OAuth Client Secret
+#### Generate a Tailscale OAuth Client Secret
 
 * Generate an OAuth Client Secret in your Tailscale Admin settings:
   * Tailscale Admin Console
@@ -32,9 +34,9 @@ MagicDNS automatically maps human-readable hostnames to Tailscale IP addresses a
 * Copy the Client ID into `config.env`.
 * Copy the OAuth Client Secret to the system clipboard for the next step.
 
-### Store the Tailscale OAuth Client Secret
+#### Store the Tailscale OAuth Client Secret
 
-An OAuth Client Secret is more secure and convenient than an Auth Key, and it removes the need to rotate an Auth Key, which expires every 90 days.
+`store-ts-oauth-client-secret.sh` securely stores a Tailscale OAuth Client Secret in the macOS Keychain:
 
 * Run the secret storage script on your macOS host:
   ```bash
@@ -42,27 +44,33 @@ An OAuth Client Secret is more secure and convenient than an Auth Key, and it re
   ```
 * Paste the OAuth Client Secret from the system clipboard to stdin for the secret storage script.
 
-The secret will be securely stored in the macOS Keychain.
+NB: An OAuth Client Secret is more secure and convenient than an Auth Key, and it removes the need to rotate an Auth Key every 90 days.
 
-### Enable HTTPS
+#### Enable HTTPS
 
-* Tailscale Admin Console
-* Settings → HTTPS (or Certificates)
-* enable HTTPS
+The Forgejo appliance relies on `tsbridge` to terminate TLS traffic and proxy requests directly to Forgejo's local UNIX socket (`/run/forgejo/forgejo.sock`). Enabling HTTPS in your Tailscale account is required so `tsbridge` can acquire valid TLS certificates on demand without exposing ports 80 or 443 to the public internet or requiring complex ACME DNS challenges. All web traffic and git operations over HTTPS depend on this feature.
 
-### Google SMTP Server Setup
+* In the [Tailscale Admin Console](https://login.tailscale.com/admin):
+  * Navigate to **DNS** and locate the **HTTPS Certificates** section (or **Settings** → **Certificates** / **HTTPS**).
+  * Click **Enable HTTPS Certificates**.
+
+NB: Tailscale MagicDNS must be enabled first before you can activate HTTPS certificates. Once enabled, `bootstrap-appliance.sh` and `teardown-appliance.sh` automatically manage and preserve the acquired TLS certificates and WireGuard keys in the macOS Keychain.
+
+### Forgejo Configuration
+
+#### Google SMTP Server Setup
 
 Forgejo supports several notification mechanisms including different mail transfer agents. We choose Google SMTP Server because it's bundled with standard Google Workspace subscription plans.
 
-The following procedure uses Google SMTP Server for reliable system notification emails without any unnecessary "on behalf of" or "via" headers:
+The following procedure uses Google SMTP Server for reliable system notification emails without any unnecessary "on behalf of" or "via" headers, which can get caught in spam filters:
 
-#### Create an Email Alias
+##### Create an Email Alias
 
 In Google Admin (Directory → Users), select your primary admin account and add an alternate email address (e.g., `forgejo-noreply@example.com`).
 
-#### Generate an App Password
+##### Generate an App Password
 
-In your Google Account Security panel, ensure 2-Step Verification is active, search for "App Passwords", generate an app password named "Forgejo Appliance" and then save the 16-character value.
+In your Google Account Security panel, ensure that 2-Step Verification is active. Then search for "App Passwords", generate an app password named "Forgejo Appliance" and save the 16-character value.
 
 NB: Google recently changed their security policy to no longer support the reuse of account passwords for third-party apps or devices. This procedure avoids this new restriction by using unique and secure app passwords, the current recommended best practice.
 
@@ -90,11 +98,11 @@ NB: Google recently changed their security policy to no longer support the reuse
 
 * Due to constraints imposed by Apple's Security Framework, both `teardown-appliance.sh` and `store-ts-oauth-client-secret.sh` must be run directly from a Mac-based terminal on the host and not remotely through SSH.
 * `tsbridge` supports both Auth Keys and OAuth clients for authentication. The primary reasons for this project choosing OAuth over Auth Keys are:
-  * `tsbridge` has shifted their recommended best practice toward OAuth.
+  * `tsbridge` has shifted their recommended best practice to OAuth.
   * Standard Auth Keys expire (after a maximum of 90 days) and require manual replacement, whereas OAuth provides a permanent hands-off solution. The only notable downside to choosing OAuth is that it causes an incompatibility with Headscale, the open-source Tailscale management server, which currently only supports Auth Keys.
 * The Tailscale OAuth Client Secret will not appear in the Apple Passwords app. Use Keychain Access instead.
 
-### Build the Infrastructure
+### Build the Appliance
 
 The `bootstrap-appliance.sh` script automates the end-to-end setup of the appliance. At a high level, it creates an Ubuntu Server virtual machine in OrbStack and applies the `cloud-init` configuration in `forgejo-appliance.yml` to install dependencies and configure Forgejo and PostgreSQL.
 
@@ -112,9 +120,9 @@ Run the automated stress-test to tear down and rebuild the VM multiple times. Th
 ./test-appliance.sh
 ```
 
-### Tear down infrastructure
+### Tear Down the Appliance
 
-Store the TLS certificate and the Forgejo data. Stop the `tsbridge` reverse proxy.
+Archive the Forgejo data and store the TLS certificate and other configuration information. Then stop the `tsbridge` reverse proxy.
 
 ```bash
 ./teardown-appliance.sh
@@ -136,7 +144,7 @@ orb exec -m forgejo-appliance sudo -u forgejo-admin  \
   --admin
 ```
 
-#### Send a Test Email
+#### Send a Test Email to Verify the SMTP Configuration
 
 ```bash
 orb exec -m forgejo-appliance sudo -u forgejo-admin  \
@@ -159,9 +167,9 @@ orb exec -m forgejo-appliance sudo -u forgejo-admin  \
 
 ## Git Example
 
-Once the appliance is deployed and you have created an account, you can interact with Forgejo exactly as you would with GitHub, use your Tailscale network for secure access. 
+Once the appliance is deployed and you have created a user account, you can interact with Forgejo exactly as you would with GitHub while using your Tailscale network for secure access. 
 
-Because this appliance explicitly routes traffic over HTTPS via `tsbridge` (and bypasses SSH multiplexing), you will use HTTPS for all git operations. 
+Because this appliance explicitly routes traffic over HTTPS via `tsbridge` (and bypasses SSH multiplexing), you must use HTTPS for all git operations. 
 
 To push an existing local repository to your new Forgejo appliance:
 
@@ -181,7 +189,7 @@ When prompted for credentials by your git client, use your Forgejo username and 
 
 ### Connecting to an OrbStack VM
 
-VM development requires rapid testing and debugging cycles. OrbStack lets you connect directly from a macOS host to a VM without needing SSH. Because `[mirrored-user]` is the default account for OrbStack integration, the `orb` command can be used from your Mac without needing to specify a user flag. Conversely, OrbStack's `mac` interoperability command allows you to execute commands on the macOS host from inside the VM. These commands run natively as the macOS host user running the OrbStack app and their standard output is also mapped to the Ubuntu shell.
+OrbStack lets you connect directly from a macOS host to a guest VM without needing SSH. Because `[mirrored-user]` is the default account for OrbStack integration, the `orb` command can be used from your Mac without needing to specify a user flag. Conversely, OrbStack's `mac` interoperability command allows you to execute commands on the macOS host from inside the VM. These commands run natively as the macOS host user running the OrbStack app and their standard output is also mapped to the Ubuntu shell.
 
 ```bash
 # connect with an interactive shell as [mirrored-user] (default)
@@ -221,7 +229,7 @@ The solution is to flush the system completely:
 
 ---
 
-## Optional Backup Guide
+## Backup Guide (optional)
 
 ### Logical Backups vs. Remote Borg Backups
 
@@ -299,7 +307,7 @@ When `BORG_RETENTION_POLICY` is set, it overrides the individual `BORG_KEEP_*` v
 
 ### Daily Backup Workflow
 
-To send the current copies of `forgejo-backup.tar.gz` and `forgejo-db.sql` to [rsync.net](https://rsync.net), run `borg-backup.sh`:
+To send the current copies of `forgejo-backup.tar.gz` and `forgejo-db.sql` to [rsync.net](https://rsync.net), run `borg-backup.sh` either manually or automatically using a `launchd` agent:
 
 ```bash
 ./borg-backup.sh
@@ -310,7 +318,7 @@ Under the hood, `borg-backup.sh` executes the following sequence:
 1. Creates an encrypted, deduplicated snapshot of the host's local backup files in Borg (`borg create ::{now:%Y-%m-%d} ./forgejo-backup.tar.gz ./forgejo-db.sql`).
 2. Cleans up old backups based on the retention policy configured in `config.env` (`borg prune`).
 
-### Automating with macOS `launchd`
+### Automating Backups with macOS `launchd`
 
 To run `borg-backup.sh` automatically every night (e.g., at 02:00), configure a macOS Launch Agent:
 
@@ -352,15 +360,19 @@ To run `borg-backup.sh` automatically every night (e.g., at 02:00), configure a 
    launchctl load ~/Library/LaunchAgents/com.forgejo-appliance.backup.plist
    ```
 
-By combining `borg-backup.sh` with a macOS `launchd` job, you achieve a fully automated, encrypted and heavily deduplicated remote backup pipeline.
+By combining `borg-backup.sh` with a macOS `launchd` job, you get a fully automated, encrypted and heavily deduplicated remote backup pipeline.
 
-### Listing and Restoring Borg Backups
+### Using Restoring Borg Backups
+
+#### Listing
 
 You can inspect all available snapshots stored in your remote Borg backup repo:
 
 ```bash
 ./list-borg-backups.sh
 ```
+
+#### Restoring
 
 To restore the backup files (`forgejo-backup.tar.gz` and `forgejo-db.sql`) from a Borg snapshot onto your macOS host, run `borg-restore.sh` with an archive name taken from the output of `list-borg-backups.sh`:
 
