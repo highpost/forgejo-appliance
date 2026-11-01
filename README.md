@@ -99,7 +99,7 @@ In Google Admin (Directory → Users), select your primary admin account and add
 
 In your Google Account Security panel, ensure that 2-Step Verification is active. Then search for "App Passwords", generate an app password named "Forgejo Appliance" and save the 16-character value.
 
-### Caveats & Best Practices
+### Caveats and Best Practices
 
 * Due to constraints imposed by Apple's Security Framework, both `teardown-appliance.sh` and `store-ts-oauth-client-secret.sh` must be run directly from a Mac-based terminal on the host and not remotely through SSH.
 * Due to constraints imposed by Apple's Security Framework, `teardown-appliance.sh`, `store-ts-oauth-client-secret.sh`, `store-forgejo-admin-password.sh` and `store-borg-passphrase.sh` must be run directly from a Mac-based terminal on the host and not remotely through SSH.
