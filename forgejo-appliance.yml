@@ -30,6 +30,8 @@ users:
     comment: Forgejo Appliance service user
     home: /home/forgejo
     create_home: true
+    lock_passwd: false
+    passwd: "*"
 
 # system files provisioning
 write_files:
@@ -180,9 +182,6 @@ runcmd:
   - tar -xzf /tmp/tsbridge.tar.gz -C /usr/local/bin/
   - chmod 755 /usr/local/bin/tsbridge
   - rm -f /tmp/tsbridge.tar.gz
-
-  # user configuration
-  - usermod -p "*" forgejo
 
   # hand ownership of app.ini over to the forgejo group
   - chown -R root:forgejo /etc/forgejo
