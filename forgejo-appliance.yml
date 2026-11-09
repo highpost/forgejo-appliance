@@ -162,7 +162,7 @@ runcmd:
   - sudo -u postgres psql -c "CREATE USER forgejo;"
   - sudo -u postgres psql -c "CREATE DATABASE forgejo OWNER forgejo;"
 
-  # prepare explicit system data directories for Forgejo service runtimes
+  # prepare system data directories for Forgejo service runtimes
   - mkdir -p /var/lib/forgejo/custom /var/lib/forgejo/data /var/lib/forgejo/log /etc/forgejo /home/forgejo/bin /run/forgejo
   - chown -R forgejo:forgejo /var/lib/forgejo /run/forgejo
   - chmod -R 770 /var/lib/forgejo /run/forgejo
