@@ -37,7 +37,7 @@ users:
 # system files provisioning
 write_files:
   # PostgreSQL HBA policy for trust auth on local connections
-  - path: /etc/postgresql/18/main/pg_hba.conf
+  - path: /etc/postgresql/${POSTGRES_VERSION}/main/pg_hba.conf
     owner: postgres:postgres
     permissions: '0640'
     defer: true
@@ -171,13 +171,13 @@ runcmd:
 
   # download, extract and install the Forgejo Linux arm64 binary
   - install -d -o forgejo -g forgejo -m 0755 /home/forgejo/bin
-  - curl -L https://codeberg.org/forgejo/forgejo/releases/download/v15.0.2/forgejo-15.0.2-linux-arm64.xz -o /tmp/forgejo.xz
+  - curl -L https://codeberg.org/forgejo/forgejo/releases/download/v${FORGEJO_VERSION}/forgejo-${FORGEJO_VERSION}-linux-arm64.xz -o /tmp/forgejo.xz
   - unxz /tmp/forgejo.xz
   - install -o forgejo -g forgejo -m 0755 /tmp/forgejo /home/forgejo/bin/forgejo
   - rm -f /tmp/forgejo
 
   # download, extract and install the tsbridge binary
-  - curl -L https://github.com/jtdowney/tsbridge/releases/download/v0.15.0/tsbridge_0.15.0_linux_arm64.tar.gz -o /tmp/tsbridge.tar.gz
+  - curl -L https://github.com/jtdowney/tsbridge/releases/download/v${TSBRIDGE_VERSION}/tsbridge_${TSBRIDGE_VERSION}_linux_arm64.tar.gz -o /tmp/tsbridge.tar.gz
   - tar -xzf /tmp/tsbridge.tar.gz -C /usr/local/bin/
   - chmod 755 /usr/local/bin/tsbridge
   - rm -f /tmp/tsbridge.tar.gz

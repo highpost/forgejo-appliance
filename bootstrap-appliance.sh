@@ -7,7 +7,17 @@ source "./utils.sh"
 
 # create and initialize an OrbStack VM
 provision_vm() {
-    orb create "$UBUNTU_SERVER" "$FORGEJO_VM" --user-data "$FORGEJO_YAML"
+    local rendered_yaml
+    rendered_yaml="$(mktemp /tmp/forgejo-appliance.XXXXXX.yml)"
+    trap 'rm -f "$rendered_yaml"' EXIT
+
+    sed -e "s|\${POSTGRES_VERSION}|$POSTGRES_VERSION|g" \
+        -e "s|\${FORGEJO_VERSION}|$FORGEJO_VERSION|g"   \
+        -e "s|\${TSBRIDGE_VERSION}|$TSBRIDGE_VERSION|g" \
+        "$FORGEJO_YAML" > "$rendered_yaml"
+
+    orb create "$UBUNTU_SERVER" "$FORGEJO_VM" --user-data "$rendered_yaml"
+    rm -f "$rendered_yaml"
     orb -m "$FORGEJO_VM" cloud-init status --wait || true
 }
 

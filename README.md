@@ -399,12 +399,12 @@ This test is self-contained and non-destructive: it stashes any existing host ba
 
 ## Maintenance Guide
 
-The Forgejo appliance treats its OrbStack VM as immutable infrastructure. Think of the VM as a strictly defined, purpose-built appliance. It's not meant to be manually administered or patched over time. To prevent configuration drift and ensure stability, we don't perform in-place configuration or upgrades. When it's time to update Forgejo, PostgreSQL or `tsbridge`, you extract a logical backup, update the source definitions in `forgejo-appliance.yml`, destroy the old environment, deploy a new one and then inject your persisted state (logical SQL stream, repository archive and Tailscale cache) back into the new environment. These tasks are performed by the `teardown-appliance.sh` and `bootstrap-appliance.sh` scripts.
+The Forgejo appliance treats its OrbStack VM as immutable infrastructure. Think of the VM as a strictly defined, purpose-built appliance. It's not meant to be manually administered or patched over time. To prevent configuration drift and ensure stability, we don't perform in-place configuration or upgrades. When it's time to update Ubuntu, PostgreSQL, Forgejo or `tsbridge`, you extract a logical backup, update the version variables in `config.env`, destroy the old environment, deploy a new one and then inject your persisted state (logical SQL stream, repository archive and Tailscale cache) back into the new environment. These tasks are performed by the `teardown-appliance.sh` and `bootstrap-appliance.sh` scripts.
 
 Software updates follow a simple three-step procedure:
 
 - Run `teardown-appliance.sh` to extract the Forgejo appliance's persistent state as a logical backup and then completely remove the VM.
-- Update the version numbers/URLs in `forgejo-appliance.yml`.
+- Update the version variables (`UBUNTU_SERVER`, `POSTGRES_VERSION`, `FORGEJO_VERSION` or `TSBRIDGE_VERSION`) in `config.env`.
 - Run `bootstrap-appliance.sh` to build a new VM and replay your logical backup (`forgejo-backup.tar.gz` and the `forgejo-db.sql` stream).
 
 ---
