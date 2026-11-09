@@ -419,7 +419,7 @@ This blueprint relies on a specific set of deployment options chosen for lightwe
 | :--- | :--- |
 | **Forgejo** | A lightweight, self-hosted Git service written in Go. Runs over a local UNIX socket (`/run/forgejo/forgejo.sock`) without exposing TCP ports. |
 | **OrbStack** | A lightweight VM/container runtime with native macOS networking and filesystem integration. |
-| **Ubuntu Server** | Provides a complete Linux system environment. |
+| **Ubuntu Server (Cloud Image)** | Provides a minimal Linux system environment with `cloud-init` pre-installed (provisioned automatically by OrbStack via `ubuntu:26.04`). |
 | **`cloud-init`** | Declaratively provisions packages, system users, configuration files (`app.ini`, `tsbridge.toml`) and `systemd` service units. |
 | **`systemd`** | Orchestrates service lifecycles and UNIX socket dependencies between Forgejo, PostgreSQL and `tsbridge`. |
 | **UNIX Domain Sockets** | Provides zero-network-exposure inter-process communication inside the VM (`/run/forgejo/forgejo.sock` and `/var/run/postgresql/.s.PGSQL.5432`). |
