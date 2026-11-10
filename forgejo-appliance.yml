@@ -13,14 +13,14 @@ apt:
 package_upgrade: true
 packages:
   - ca-certificates
+  - locales
   - curl
+  - gnupg
+  - sudo
   - git
   - git-lfs
-  - gnupg
-  - locales
   - postgresql
   - postgresql-client
-  - sudo
 
 # user provisioning
 users:
