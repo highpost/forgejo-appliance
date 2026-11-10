@@ -12,11 +12,6 @@ apt:
 # required packages
 package_upgrade: true
 packages:
-  - ca-certificates
-  - locales
-  - curl
-  - gnupg
-  - sudo
   - git
   - git-lfs
   - postgresql
