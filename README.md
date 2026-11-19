@@ -12,39 +12,59 @@ Deploying the appliance involves configuring Tailscale prerequisites (MagicDNS, 
 
 ### `tsbridge` Configuration
 
-#### Enable Tailscale MagicDNS
+#### 1. Enable Tailscale MagicDNS
 
 MagicDNS automatically maps human-readable hostnames to Tailscale IP addresses across your tailnet (e.g., `YOUR_MACHINE_NAME.YOUR_TAILNET.ts.net`). It allows devices to reach the appliance by name and is required for provisioning Tailscale HTTPS certificates.
 
-1. Tailscale Admin Console
-2. Navigate to DNS → Enable MagicDNS
+1. Open the [Tailscale Admin Console](https://login.tailscale.com/admin).
+2. Navigate to **DNS** → **Enable MagicDNS**.
 
-#### Generate a Tailscale OAuth Client Secret
+#### 2. Configure Tailscale ACLs & Define `tag:myservers`
+
+By default, Tailscale devices belong to individual human users. For a shared server appliance, Tailscale uses **Tags** (e.g., `tag:myservers`) to assign a persistent "server identity" that isn't tied to any personal account and whose authentication keys do not expire.
+
+Before you can create an OAuth client or advertise tags from a machine, the tag must be declared in your tailnet policy.
+
+1. Open the [Tailscale Admin Console](https://login.tailscale.com/admin/acls) and navigate to **Access Controls**.
+2. Add `tag:myservers` under `tagOwners`:
+
+   ```json
+   {
+     "tagOwners": {
+       "tag:myservers": ["autogroup:admin"]
+     }
+   }
+   ```
+
+#### 3. Generate a Tailscale OAuth Client Secret
+
+An OAuth client secret allows `tsbridge` to automatically authenticate the appliance to your tailnet, request HTTPS certificates, and manage its lifecycle via the Tailscale API.
 
 1. Generate an OAuth Client Secret in your Tailscale Admin settings:
-  a. Tailscale Admin Console
-  b. Settings → Trust Credentials
-  c. \+ Credential
-     * Description: Forgejo git server
-     * Devices>Core
-       * Read + Write
-       * tag:myservers
-     * Keys>Auth Keys
-       * Read + Write
-2. Copy the Client ID into `config.env`.
-3. Copy the OAuth Client Secret to the system clipboard for the next step.
+   a. Open the [Tailscale Admin Console](https://login.tailscale.com/admin).
+   b. Navigate to **Settings** → **Trust credentials**.
+   c. Click **+ Credential** (OAuth client):
+      * **Description:** `Forgejo git server`
+      * **Devices > Core:**
+        * Read + Write
+        * `tag:myservers`
+      * **Keys > Auth Keys:**
+        * Read + Write
+        * `tag:myservers`
+2. Copy the **Client ID** into `config.env` (`TS_OAUTH_CLIENT_ID`).
+3. Copy the **OAuth Client Secret** (`tskey-client-...`) to the system clipboard for the next step.
 
-#### Store the Tailscale OAuth Client Secret
+#### 4. Store the Tailscale OAuth Client Secret
 
-`store-ts-oauth-client-secret.sh` securely stores a Tailscale OAuth Client Secret in the macOS Keychain:
+`store-ts-oauth-client-secret.sh` securely stores the Tailscale OAuth Client Secret in the macOS Login Keychain under the `$TS_OAUTH_SECRET_KEY` key:
 
 1. Run the secret storage script on your macOS host:
    ```bash
    ./store-ts-oauth-client-secret.sh
    ```
-2. Paste the OAuth Client Secret from the system clipboard to stdin for the secret storage script.
+2. Paste the OAuth Client Secret from the system clipboard when prompted.
 
-#### Enable HTTPS
+#### 5. Enable HTTPS
 
 The Forgejo appliance relies on `tsbridge` to terminate TLS traffic and proxy requests directly to Forgejo's local UNIX socket (`/run/forgejo/forgejo.sock`). Enabling HTTPS in your Tailscale account is required so that `tsbridge` can acquire valid TLS certificates on demand without exposing ports 80 or 443 to the public internet or requiring complex ACME DNS challenges. All web traffic and git operations over HTTPS depend on this feature.
 
@@ -101,12 +121,11 @@ In your Google Account Security panel, ensure that 2-Step Verification is active
 
 ### Caveats and Best Practices
 
-* Due to constraints imposed by Apple's Security Framework, both `teardown-appliance.sh` and `store-ts-oauth-client-secret.sh` must be run directly from a Mac-based terminal on the host and not remotely through SSH.
-* Due to constraints imposed by Apple's Security Framework, `teardown-appliance.sh`, `store-ts-oauth-client-secret.sh`, `store-forgejo-admin-password.sh` and `store-borg-passphrase.sh` must be run directly from a Mac-based terminal on the host and not remotely through SSH.
+* Due to constraints imposed by Apple's Security Framework, `teardown-appliance.sh`, `store-ts-oauth-client-secret.sh`, `store-forgejo-admin-password.sh` and `store-borg-passphrase.sh` must be run directly from a local Mac terminal on the host and not remotely through SSH.
 * `tsbridge` supports both Auth Keys and OAuth clients for authentication. The primary reasons for this project choosing OAuth over Auth Keys are:
   * `tsbridge` has shifted their recommended best practice to OAuth.
   * An OAuth Client Secret is more secure and convenient than a standard Auth Key, which expires after a maximum of 90 days and requires manual rotation, whereas OAuth provides a permanent hands-off solution.
-* The Tailscale OAuth Client Secret will not appear in the Apple Passwords app. Use Keychain Access instead.
+* The Tailscale OAuth Client Secret, admin passwords, and passphrases will not appear in the Apple Passwords app. Use **Keychain Access** instead.
 * Tailscale MagicDNS must be enabled before you can activate HTTPS certificates. Once enabled, `bootstrap-appliance.sh` and `teardown-appliance.sh` can automatically manage and preserve the acquired TLS certificates and WireGuard keys in Apple Keychain.
 * Google recently changed their security policy to no longer support the reuse of account passwords for third-party apps or devices. Generating a Google App Password avoids this restriction by using unique and secure app passwords, the current recommended best practice.
 * SSH is disabled on the Forgejo appliance, so you normally connect to the OrbStack VM using `orb -m forgejo-appliance`. To remotely connect to the appliance, first use SSH to connect to the host Mac and then connect to the Forgejo appliance with `orb -m forgejo-appliance`.
@@ -119,7 +138,6 @@ In your Google Account Security panel, ensure that 2-Step Verification is active
 
 `bootstrap-appliance.sh` automates the end-to-end setup of the appliance. At a high level, it creates an Ubuntu Server VM in OrbStack and applies the `cloud-init` configuration in `forgejo-appliance.yml` to install dependencies and configure Forgejo and PostgreSQL.
 
-At the systems level, the script orchestrates host-to-VM integration: it retrieves OAuth credentials and cached WireGuard/TLS state from the macOS Keychain, configures UNIX sockets for local inter-process communication, restores existing application data and logical database backups (SQL stream), and starts the `tsbridge` reverse proxy to serve Forgejo over Tailscale HTTPS.
 At the systems level, the script orchestrates host-to-VM integration: it retrieves OAuth credentials, the initial `forgejo-admin` password and cached WireGuard/TLS state from the macOS Keychain, configures UNIX sockets for local inter-process communication, restores existing application data and logical database backups (SQL stream), starts the `tsbridge` reverse proxy to serve Forgejo over Tailscale HTTPS, and ensures the `forgejo-admin` administrator account exists.
 
 ```bash
