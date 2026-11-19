@@ -41,8 +41,11 @@ Before you can create an OAuth client or advertise tags from a machine, the tag 
 An OAuth client secret allows `tsbridge` to automatically authenticate the appliance to your tailnet, request HTTPS certificates, and manage its lifecycle via the Tailscale API.
 
 1. Generate an OAuth Client Secret in your Tailscale Admin settings:
+
    a. Open the [Tailscale Admin Console](https://login.tailscale.com/admin).
+
    b. Navigate to **Settings** → **Trust credentials**.
+
    c. Click **+ Credential** (OAuth client):
       * **Description:** `Forgejo git server`
       * **Devices > Core:**
@@ -51,7 +54,11 @@ An OAuth client secret allows `tsbridge` to automatically authenticate the appli
       * **Keys > Auth Keys:**
         * Read + Write
         * `tag:myservers`
+
+   d. Generate credential.
+
 2. Copy the **Client ID** into `config.env` (`TS_OAUTH_CLIENT_ID`).
+
 3. Copy the **OAuth Client Secret** (`tskey-client-...`) to the system clipboard for the next step.
 
 #### 4. Store the Tailscale OAuth Client Secret
@@ -121,10 +128,10 @@ In your Google Account Security panel, ensure that 2-Step Verification is active
 
 ### Caveats and Best Practices
 
-* Due to constraints imposed by Apple's Security Framework, `teardown-appliance.sh`, `store-ts-oauth-client-secret.sh`, `store-forgejo-admin-password.sh` and `store-borg-passphrase.sh` must be run directly from a local Mac terminal on the host and not remotely through SSH.
+* Due to constraints imposed by Apple's Security Framework, `bootstrap-appliance.sh`, `teardown-appliance.sh`, `store-ts-oauth-client-secret.sh`, `store-forgejo-admin-password.sh` and `store-borg-passphrase.sh` must be run directly from a local Mac terminal on the host and not remotely through SSH.
 * `tsbridge` supports both Auth Keys and OAuth clients for authentication. The primary reasons for this project choosing OAuth over Auth Keys are:
   * `tsbridge` has shifted their recommended best practice to OAuth.
-  * An OAuth Client Secret is more secure and convenient than a standard Auth Key, which expires after a maximum of 90 days and requires manual rotation, whereas OAuth provides a permanent hands-off solution.
+  * An OAuth Client Secret is more secure and convenient than a standard Auth Key, which expires after a maximum of 90 days and requires manual rotation, whereas OAuth provides a permanent hands-off solution (and allows `teardown-appliance.sh --purge` to evict node registrations through the Tailscale API).
 * The Tailscale OAuth Client Secret, admin passwords, and passphrases will not appear in the Apple Passwords app. Use **Keychain Access** instead.
 * Tailscale MagicDNS must be enabled before you can activate HTTPS certificates. Once enabled, `bootstrap-appliance.sh` and `teardown-appliance.sh` can automatically manage and preserve the acquired TLS certificates and WireGuard keys in Apple Keychain.
 * Google recently changed their security policy to no longer support the reuse of account passwords for third-party apps or devices. Generating a Google App Password avoids this restriction by using unique and secure app passwords, the current recommended best practice.
@@ -132,7 +139,6 @@ In your Google Account Security panel, ensure that 2-Step Verification is active
 * Let's Encrypt enforces a **limit of 5 certificates per hostname over a rolling 7-day period**. `teardown-appliance.sh` preserves the existing TLS certificate in Keychain to avoid burning through this quota. However, if you repeatedly teardown with `--purge` and re-bootstrap in rapid succession, `tsbridge` requests a brand new certificate each time and can trigger this limit. If you suspect you have hit this threshold:
   1. Search your node's fully qualified MagicDNS domain (e.g., `*YOUR_MACHINE_NAME*.*YOUR_TAILNET*.ts.net`) on [crt.sh](https://crt.sh) to inspect the public Certificate Transparency logs and view recent issuance timestamps.
   2. If you have exceeded the 5-certificate limit, either wait for the oldest certificate in the rolling 7-day window to age out, or temporarily rename `TS_MACHINE_NAME` in `config.env` and `forgejo-appliance.yml` to request a certificate under a fresh hostname.
-* Due to macOS sandbox restrictions, a guest VM cannot directly query its host for credentials.
 
 ### Build the Appliance
 
@@ -154,11 +160,23 @@ At the systems level, the script orchestrates host-to-VM integration: it retriev
 
 ### Tear Down the Appliance
 
-`teardown-appliance.sh` first archives Forgejo git repository data, metadata and credentials, and then stops the `tsbridge` reverse proxy.
+`teardown-appliance.sh` supports two modes depending on whether you plan to rebuild the appliance later:
 
-```bash
-./teardown-appliance.sh
-```
+* **Standard Rebuild / Fast Teardown (preserves Tailscale identity and TLS certificates):**
+
+  ```bash
+  ./teardown-appliance.sh
+  ```
+
+  Extracts a logical backup (`forgejo-db.sql` and `forgejo-backup.tar.gz`) to the macOS host, halts `tsbridge`, archives `/var/lib/tsbridge` (WireGuard node identity and Let's Encrypt TLS certificates) into Apple Keychain (`tsbridge-state-cache`) and deletes the OrbStack VM. The next `./bootstrap-appliance.sh` run will restore this state immediately.
+
+* **Full Purge (removes device from Tailscale and clears Keychain state):**
+
+  ```bash
+  ./teardown-appliance.sh --purge
+  ```
+
+  Extracts the logical backup (`forgejo-db.sql` and `forgejo-backup.tar.gz`), uses your OAuth credentials to delete the machine registration via the Tailscale API, waits 3 minutes for MagicDNS to drop the hostname lease, deletes the cached WireGuard and TLS state (`tsbridge-state-cache`) from Apple Keychain and deletes the OrbStack VM.
 
 ### Post-Provisioning Operations
 
