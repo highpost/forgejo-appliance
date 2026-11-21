@@ -156,7 +156,7 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
-# post-provisioning shell commands
+# post-provisioning
 runcmd:
   # reload PostgreSQL to apply pg_hba.conf and create the default user and database
   - systemctl reload postgresql
