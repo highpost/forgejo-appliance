@@ -151,7 +151,7 @@ write_files:
       PASSWD           = YOUR_GOOGLE_SMTP_PASSWORD
       FORCE_TRUST_SERVER_CERT = false
 
-# post-provisioning
+# post-provisioning shell commands
 runcmd:
   # compile system locale database definitions
   - locale-gen en_US.UTF-8
