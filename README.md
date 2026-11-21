@@ -45,17 +45,24 @@ An OAuth client secret allows `tsbridge` to automatically authenticate the appli
    a. Open the [Tailscale Admin Console](https://login.tailscale.com/admin).
 
    b. Navigate to **Settings** → **Trust credentials**.
+      * Click **+ Credential**:
 
-   c. Click **+ Credential** (OAuth client):
+   c. New Credential > Settings
+      * **OAuth client**
       * **Description:** `Forgejo git server`
+      * Continue
+
+   d. New Credential > Scopes
       * **Devices > Core:**
         * Read + Write
         * `tag:myservers`
+        * NB: the `tag` pop-up menu appears *after* selecting Read + Write.
       * **Keys > Auth Keys:**
         * Read + Write
         * `tag:myservers`
+        * NB: see above.
 
-   d. Generate credential.
+   e. Generate credential.
 
 2. Copy the **Client ID** into `config.env` (`TS_OAUTH_CLIENT_ID`).
 
