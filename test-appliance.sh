@@ -15,8 +15,8 @@ rebuild_appliance() {
     log_info "--> running teardown and extracting state..."
     ./teardown-appliance.sh || { log_err "teardown-appliance.sh failed"; exit 1; }
 
-    log_info "--> bootstrapping fresh appliance..."
-    ./bootstrap-appliance.sh || { log_err "bootstrap-appliance.sh failed"; exit 1; }
+    log_info "--> building fresh appliance..."
+    ./build-appliance.sh || { log_err "build-appliance.sh failed"; exit 1; }
 }
 
 # wait for Tailscale convergence (smart polling)

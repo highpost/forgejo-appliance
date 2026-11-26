@@ -7,6 +7,7 @@ source "./utils.sh"
 
 # create and initialize an OrbStack VM
 provision_vm() {
+    log_info "Provisioning OrbStack VM '$FORGEJO_VM' ($UBUNTU_SERVER)..."
     local rendered_yaml
     rendered_yaml="$(mktemp /tmp/forgejo-appliance.XXXXXX.yml)"
     trap 'rm -f "$rendered_yaml"' EXIT
@@ -24,9 +25,9 @@ provision_vm() {
 setup_tsbridge_reverse_proxy() {
     # fetch the Tailscale OAuth client secret from Apple Keychain
     local ts_oauth_secret_value
-    ts_oauth_secret_value="$(security find-generic-password -s "$TS_OAUTH_SECRET_KEY" -w 2>/dev/null)"
+    ts_oauth_secret_value="$(security find-generic-password -s "$TS_OAUTH_SECRET_KEY" -w 2>/dev/null || true)"
     if [ -z "$ts_oauth_secret_value" ]; then
-        log_err "'$TS_OAUTH_SECRET_KEY' not found in Keychain."
+        log_err "'$TS_OAUTH_SECRET_KEY' not found in Keychain. Run './store-ts-oauth-client-secret.sh' first."
         exit 1
     fi
 
@@ -41,30 +42,27 @@ EOF
     orb exec -m "$FORGEJO_VM" sudo chown root:root /etc/tsbridge/tsbridge.env
 
     # restore the WireGuard node private key and ACME TLS certificate from Apple Keychain
-    local state_key="${TS_STATE_CACHE:-${TS_CERT_CACHE:-tsbridge-state-cache}}"
     local ts_state_b64
-    ts_state_b64=$(security find-generic-password -s "$state_key" -w 2>/dev/null || true)
-    if [ -z "$ts_state_b64" ] && [ "$state_key" != "tsbridge-cert-cache" ]; then
-        # legacy fallback
-        ts_state_b64=$(security find-generic-password -s "tsbridge-cert-cache" -w 2>/dev/null || true)
-    fi
+    ts_state_b64="$(security find-generic-password -s "$TS_STATE_CACHE" -w 2>/dev/null || true)"
 
     # decode and unpack the cached WireGuard node identity and ACME TLS certificates into /var/lib/tsbridge
     if [ -n "$ts_state_b64" ]; then
+        log_info "Restoring cached tsbridge state from Keychain..."
         orb exec -m "$FORGEJO_VM" sudo mkdir -p        /var/lib/tsbridge
-        orb exec -m "$FORGEJO_VM" sudo chmod 700       /var/lib/tsbridge
+        orb exec -m "$FORGEJO_VM" sudo chmod 0700      /var/lib/tsbridge
         orb exec -m "$FORGEJO_VM" sudo chown root:root /var/lib/tsbridge
         printf "%s\n" "$ts_state_b64" | orb exec -m "$FORGEJO_VM" sudo sh -c '
           base64 -d -i | tar -xf - -C /var/lib/tsbridge'
     fi
 }
 
-# halt the Forgejo service and restore certificates and Forgejo data from the macOS host
+# halt the Forgejo service and restore Forgejo data and database from the macOS host
 restore_appliance_data() {
     orb exec -m "$FORGEJO_VM" sudo systemctl stop forgejo
 
     # restore data (if a backup exists)
     if [ -f "./forgejo-backup.tar.gz" ] && [ -f "./forgejo-db.sql" ]; then
+        log_info "Restoring Forgejo data and database backup from host..."
         # push both assets into the VM
         cat "./forgejo-backup.tar.gz" | orb exec -m "$FORGEJO_VM" sudo sh -c 'cat > /tmp/forgejo-backup.tar.gz'
         cat "./forgejo-db.sql"        | orb exec -m "$FORGEJO_VM" sudo sh -c 'cat > /tmp/forgejo-db.sql'
@@ -106,6 +104,7 @@ EOF
 
 # start the Forgejo/tsbridge services and verify UNIX socket health
 start_appliance_services() {
+    log_info "Starting Forgejo and tsbridge services..."
     orb exec -m "$FORGEJO_VM" sudo systemctl daemon-reload
     orb exec -m "$FORGEJO_VM" sudo systemctl start forgejo
 
@@ -141,6 +140,7 @@ ensure_admin_user() {
         exit 1
     fi
 
+    log_info "Creating initial Forgejo admin user '$admin_user'..."
     printf "%s\n" "$admin_password" | orb exec -m "$FORGEJO_VM" sudo -u forgejo sh -c '
         IFS= read -r pw
         /home/forgejo/bin/forgejo admin user create \
@@ -160,6 +160,7 @@ main() {
     restore_appliance_data
     start_appliance_services
     ensure_admin_user
+    log_info "VM '$FORGEJO_VM' is ready."
 }
 
 main "$@"

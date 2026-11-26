@@ -4,7 +4,7 @@
 
 ## build, test and lifecycle commands
 
-* **bootstrap:** `./bootstrap-appliance.sh`
+* **build:** `./build-appliance.sh`
 * **Borg backup:** `./borg-backup.sh`
 * **Borg restore:** `./borg-restore.sh <archive_name>`
 * **list Borg backups:** `./list-borg-backups.sh`

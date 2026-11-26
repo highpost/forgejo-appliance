@@ -2,8 +2,6 @@
 
 # environment configuration
 locale: en_US.UTF-8
-environment:
-  DEBIAN_FRONTEND: noninteractive
 
 # package repositories configuration
 apt:
@@ -20,12 +18,8 @@ packages:
 # user provisioning
 users:
   - name: forgejo
-    uid: 1001
     shell: /bin/bash
-    system: false
     comment: Forgejo Appliance service user
-    home: /home/forgejo
-    create_home: true
     lock_passwd: false
     passwd: "*"
 
