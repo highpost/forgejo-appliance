@@ -156,7 +156,7 @@ In the [Tailscale Admin Console](https://login.tailscale.com/admin):
     * `TS_OAUTH_CLIENT_ID="YOUR_TAILNET_OAUTH_ID"`
     * `FORGEJO_ADMIN_EMAIL="YOUR_ADMIN_EMAIL"`
   * **Optional (for remote backups):**
-    * `BORG_REPO="zh1234@zh1234.rsync.net:forgejo-backup"` (see [Backup Guide (optional)](#backup-guide-optional))
+    * `BORG_REPO="zh1234@zh1234.rsync.net:forgejo-appliance-backup"` (see [Backup Guide (optional)](#backup-guide-optional))
 * [`forgejo-appliance.yml`](./forgejo-appliance.yml):
   * `tsbridge.toml` section:
     * `[[services]]`
@@ -357,7 +357,7 @@ brew install borgbackup
 1. **Configure `BORG_REPO` in [`config.env`](./config.env):**
    Set `BORG_REPO` to point to your rsync.net destination:
    ```zsh
-   BORG_REPO="zh1234@zh1234.rsync.net:forgejo-backup"
+   BORG_REPO="zh1234@zh1234.rsync.net:forgejo-appliance-backup"
    ```
 
 2. **Configure SSH Key Access:**
@@ -380,7 +380,7 @@ brew install borgbackup
    Initialize your encrypted repository on rsync.net (you only need to do this once). Replace `zh1234` with your actual rsync.net account username:
    ```zsh
    # example for rsync.net account zh1234:
-   borg init -e repokey zh1234@zh1234.rsync.net:forgejo-backup
+   borg init -e repokey zh1234@zh1234.rsync.net:forgejo-appliance-backup
    ```
 
 ### Configuring the Retention Policy
