@@ -361,13 +361,23 @@ brew install borgbackup
    ```
 
 2. **Configure SSH Key Access:**
-   Ensure your macOS host can authenticate to rsync.net via SSH without an interactive password:
+   Because rsync.net runs a restricted environment without an interactive shell (see rsync.net's [SSH Keys](https://www.rsync.net/resources/howto/ssh_keys.html) and [Remote Commands](https://www.rsync.net/resources/howto/remote_commands.html) guides), `ssh-copy-id` does not reliably install keys. Upload your public key directly with `scp` instead:
    ```zsh
-   ssh-copy-id -i ~/.ssh/id_ed25519.pub zh1234@zh1234.rsync.net
+   scp ~/.ssh/id_ed25519.pub zh1234@zh1234.rsync.net:.ssh/authorized_keys
    ```
-   Verify the connection:
+   *(Note: `scp` overwrites `.ssh/authorized_keys`. If you already have other keys installed on rsync.net, copy the file down first, append your new public key locally and `scp` it back. Per rsync.net's guidance, do not modify permissions on `.ssh` or `authorized_keys`.)*
+
+   If you use a non-default key filename (for example, `~/.ssh/id_custom_ed25519`), add a `Host` block to `~/.ssh/config` so `ssh` and `borg` select it automatically:
+   ```sshconfig
+   Host zh1234.rsync.net
+       User zh1234
+       IdentityFile ~/.ssh/id_custom_ed25519
+       IdentitiesOnly yes
+   ```
+
+   Verify passwordless access with a non-interactive remote command:
    ```zsh
-   ssh zh1234@zh1234.rsync.net
+   ssh zh1234@zh1234.rsync.net ls
    ```
 
 3. **Store Passphrase in Apple Keychain:**
