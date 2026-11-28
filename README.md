@@ -25,7 +25,7 @@ While this blueprint is tailored for Forgejo, it can also serve as a pattern for
   * [Backup Guide (optional)](#backup-guide-optional)
     * [Logical Backups vs. Remote Borg Backups](#logical-backups-vs-remote-borg-backups)
     * [Install BorgBackup](#install-borgbackup)
-    * [Register Your Repo with Your rsync.net Account](#register-your-repo-with-your-rsyncnet-account)
+    * [Register Your Borg Repo with Your rsync.net Account](#register-your-borg-repo-with-your-rsyncnet-account)
     * [Configuring the Retention Policy](#configuring-the-retention-policy)
     * [Backup Workflow](#backup-workflow)
     * [Using Borg Backups](#using-borg-backups)
@@ -350,7 +350,7 @@ Install the BorgBackup app on your macOS host:
 brew install borgbackup
 ```
 
-### Register Your Repo with Your rsync.net Account
+### Register Your Borg Repo with Your rsync.net Account
 
 [rsync.net](https://www.rsync.net/) provides remote cloud storage with native BorgBackup support over SSH. When you sign up, you receive an account identifier (for example, `zh1234`) and a host domain (`zh1234.rsync.net` or a regional hostname).
 
@@ -547,7 +547,7 @@ We maintain four Keychain items:
 | :--- | :--- | :--- | :--- | :--- |
 | `forgejo-appliance-ts-oauth-secret` | `$TS_OAUTH_SECRET_KEY` | Operator-Managed | ~50–70 bytes | Tailscale OAuth client secret used by `tsbridge` to automatically authenticate the appliance to your tailnet (stored via [`store-ts-oauth-client-secret.sh`](./store-ts-oauth-client-secret.sh)). |
 | `forgejo-admin-password` | `$FORGEJO_ADMIN_PASSWORD_KEY` | Operator-Managed | ~12–64 bytes | Initial administrator password used by [`build-appliance.sh`](./build-appliance.sh) to create the `forgejo-admin` user on first boot (stored via [`store-forgejo-admin-password.sh`](./store-forgejo-admin-password.sh)). |
-| `borg-passphrase` | `$BORG_PASSPHRASE_KEY` | Operator-Managed | ~20–64 bytes | Passphrase used by Borg to encrypt and decrypt offsite backup snapshots on rsync.net (stored via [`store-borg-passphrase.sh`](./store-borg-passphrase.sh)). |
+| `forgejo-appliance-borg-passphrase` | `$BORG_PASSPHRASE_KEY` | Operator-Managed | ~20–64 bytes | Passphrase used by Borg to encrypt and decrypt offsite backup snapshots on rsync.net (stored via [`store-borg-passphrase.sh`](./store-borg-passphrase.sh)). |
 | `forgejo-appliance-ts-state-cache` | `$TS_STATE_CACHE` | Appliance-Managed | ~90 bytes | Runtime cryptographic state from `/var/lib/tsbridge`: bundles the **WireGuard node private key** (prevents MagicDNS collisions) and the **ACME TLS certificate & key** (avoids Let's Encrypt rate limits). Managed automatically by [`build-appliance.sh`](./build-appliance.sh) and [`teardown-appliance.sh`](./teardown-appliance.sh). |
 
 #### Why Store Runtime Cryptography in Keychain?
